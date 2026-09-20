@@ -1,0 +1,25 @@
+# 依存パッケージ
+node_modules/
+.venv/
+
+# ビルド・配布物
+dist/
+build/
+*.egg-info/
+*.tsbuildinfo
+
+# キャッシュ
+__pycache__/
+*.py[cod]
+coverage/
+htmlcov/
+.coverage
+.vitest/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# エディタ・OS
+.DS_Store
+.vscode/
+.idea/
