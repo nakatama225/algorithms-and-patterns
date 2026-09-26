@@ -4,9 +4,11 @@
 
 アルゴリズムと設計パターンを、再利用できる部品として実装したものです。
 
-**現在の状態（2026年9月）**：設計の型（`patterns/`）を3つ、TypeScript と Python の両方で
-テストつきで置いています。共通部品（`lib/`）と具体的な解答（`problems/`）はまだありません。
-次に置くのは、残りの設計の型（State）です。
+**現在の状態（2026年9月）**：設計の型（`patterns/`）を4つ置いています。TypeScript は4つとも
+部品とテストがあります。Python は3つに部品とテストがあり、残る State は標準ライブラリで
+足りるので、書き方の見本をテストに置いています。共通部品（`lib/`）と具体的な解答（`problems/`）は
+まだありません。次に足すのは、実際の作品（animal-bomber など）で新しく使った設計の型と、
+問題を解く過程で書いた共通部品・解答です。
 
 ---
 
@@ -55,7 +57,8 @@ Python だけ `algorithms_and_patterns` という1つのパッケージの下に
 
 ### 3. すべての部品にテストを置く
 
-`tests/` は `src/` と同じ構造にします。テストは、部品が正しく動くことの確認であると同時に、
+`tests/` は `src/` と同じ構造にします（例外は Python の State で、部品が無いので
+見本だけをテストに置いています）。テストは、部品が正しく動くことの確認であると同時に、
 **その部品が何を保証しているのかの記述**でもあります。エッジケース
 （空、1件、重複、境界値、異常値）を通しておくと、読む人は仕様を読み取れます。
 
@@ -66,6 +69,7 @@ Python だけ `algorithms_and_patterns` という1つのパッケージの下に
 | Command（命令を値として渡す） | 1歩ずつ進む処理と、「その歩で何をするか」を決める側を切り離す。記録と再生が、部品を1つ挟むだけで作れる | [command.ts](typescript/src/patterns/command.ts) | [command.py](python/src/algorithms_and_patterns/patterns/command.py) |
 | Strategy（答え方を差し替える）と登録表 | 同じ問いへの答え方を名前で引けるように並べる。答え方を足すときに、使う側と既存の答え方を触らない | [strategy.ts](typescript/src/patterns/strategy.ts) | [strategy.py](python/src/algorithms_and_patterns/patterns/strategy.py) |
 | Chain of Responsibility（規則を優先順に試す） | 1つの長い if の連なりを、独立した規則の並びにする。規則を足す・外す・入れ替えるのが、並びの1行の操作になる | [chain-of-responsibility.ts](typescript/src/patterns/chain-of-responsibility.ts) | [chain_of_responsibility.py](python/src/algorithms_and_patterns/patterns/chain_of_responsibility.py) |
+| State（状態を閉じた union で表す） | 取りうる状態を型で閉じ、状態ごとに持つ値を分ける。状態を足したときの扱い忘れを、型検査が見つける | [state.ts](typescript/src/patterns/state.ts) | 部品は無し（標準ライブラリで足りる）。書き方の見本は [test_state.py](python/tests/patterns/test_state.py) |
 
 ### 言語で形が変わったところ
 
@@ -118,6 +122,29 @@ Python だけ `algorithms_and_patterns` という1つのパッケージの下に
   表せないので、答えに `None` を使わないことは約束として書くしかありません
 - 規則の状況の型の向きは、Command と同じ理由で、TypeScript では関数を持つ項目の形で宣言しています
 
+#### State
+
+- 扱い忘れを見つける部品：TypeScript は `assertNever`（引数の型が `never` の関数）を
+  自分で書きます。Python は標準ライブラリに `typing.assert_never`（3.11 以降）があります。
+  **Python 側には置く部品が無い**ので、`patterns/` にファイルを置かず、書き方の見本と
+  それで守られることを、テスト（`python/tests/patterns/test_state.py`）に置いています
+- 状態の見分け方：TypeScript は各状態に印の項目（`kind`）を持たせ、その値で見分けます。
+  Python はクラスそのものが印になり、`match` の `case Connecting(attempt=n):` で、
+  見分けるのと値を取り出すのを1行で書けます
+- 書き換えの禁止：TypeScript の `readonly` は型検査だけの約束で、実行時には止まりません
+  （止めるなら `Object.freeze`）。Python の frozen dataclass は、型検査でも実行時にも止まります
+
+### Strategy と State は逆の性質を持つ
+
+Strategy は、答え方を後から足せる代わりに、どんな答え方があるかが型に現れません。
+名前の書き間違いは、引くまで分かりません。State は、取りうる状態を型で閉じる代わりに、
+状態を足すたびに、それを扱う分岐をすべて直します。直し忘れは型検査が見つけます。
+
+どちらを選ぶかは、種類が後から増えていくのか（Strategy）、種類ごとの扱いを1つも
+漏らせないのか（State）で決めます。animal-bomber は両方を使っていて、動物ごとの能力は
+Strategy（動物を足すときに、既存の動物にも、移動や被弾の処理にも手を入れない）、
+プレイヤーの状態は State です。
+
 ## 実際に使った例へのリンク
 
 ここに置いた型は、抽象のまま置いておくだけでは「使えるのか」が分かりません。
@@ -128,6 +155,7 @@ Python だけ `algorithms_and_patterns` という1つのパッケージの下に
 | Command | [animal-bomber](https://github.com/nakatama225/animal-bomber) の操作の出どころ（[IntentSource.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/intent/IntentSource.ts)）と、操作の記録・再生（[InputLog.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/net/InputLog.ts)） | まだ無い（animal-bomber の [Python 版](https://github.com/nakatama225/animal-bomber/tree/main/py)は実装前） |
 | Strategy | animal-bomber の動物ごとの能力。答え方の型と登録表（[Ability.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/abilities/Ability.ts)）、登録を集める1か所（[registry.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/abilities/registry.ts)） | まだ無い |
 | Chain of Responsibility | animal-bomber の CPU の判断。規則の型と先頭から試す関数（[CpuBehavior.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/ai/CpuBehavior.ts)）、規則の並び（[DefaultChain.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/ai/behaviors/DefaultChain.ts)） | まだ無い |
+| State | animal-bomber のプレイヤーの状態。状態の union（[Life.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/state/Life.ts)）と、`never` への代入で扱い忘れを型エラーにする分岐（[WorldState.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/state/WorldState.ts) の `hashLife`）。同じ仕掛けを `assertNever` の形で、イベントの union にも使っている（[SimEvent.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/events/SimEvent.ts)） | まだ無い |
 
 ここに置いた形は、使った先の形をそのまま写したものではありません。使ってみて分かった
 直しを入れてあります。たとえば Command は、歩の番号を処理の側が数えて渡す形にしました。

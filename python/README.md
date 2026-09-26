@@ -1,7 +1,8 @@
 # Python 実装
 
 **現在の状態（2026年9月）**：`src/algorithms_and_patterns/patterns/` に設計の型が3つあります。
-`lib/` と `problems/` はまだありません。
+4つ目の State は標準ライブラリ（`typing.assert_never` と `match`）で足りるので、部品を置かず、
+書き方の見本を `tests/patterns/test_state.py` に置いています。`lib/` と `problems/` はまだありません。
 
 ```text
 python/
@@ -12,7 +13,7 @@ python/
       py.typed       型注釈つきのパッケージであることの印。これが無いと、ほかのプロジェクトから
                      import したときに型検査が型注釈を読まない
       patterns/      設計の型（抽象定義）
-  tests/             src と同じ構造
+  tests/             src と同じ構造。State だけは部品が無く、書き方の見本をテストに置いている
 ```
 
 標準ライブラリだけで書いているので、実行に要る依存はありません。

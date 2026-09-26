@@ -1,6 +1,6 @@
 # TypeScript 実装
 
-**現在の状態（2026年9月）**：`src/patterns/` に設計の型が3つあります。
+**現在の状態（2026年9月）**：`src/patterns/` に設計の型が4つあります。
 `src/lib/` と `src/problems/` はまだありません。
 
 ```text
