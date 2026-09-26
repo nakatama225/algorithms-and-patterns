@@ -4,9 +4,9 @@
 
 アルゴリズムと設計パターンを、再利用できる部品として実装したものです。
 
-**現在の状態（2026年9月）**：設計の型（`patterns/`）を2つ、TypeScript と Python の両方で
+**現在の状態（2026年9月）**：設計の型（`patterns/`）を3つ、TypeScript と Python の両方で
 テストつきで置いています。共通部品（`lib/`）と具体的な解答（`problems/`）はまだありません。
-次に置くのは、残りの設計の型（Chain of Responsibility・State）です。
+次に置くのは、残りの設計の型（State）です。
 
 ---
 
@@ -65,6 +65,7 @@ Python だけ `algorithms_and_patterns` という1つのパッケージの下に
 |---|---|---|---|
 | Command（命令を値として渡す） | 1歩ずつ進む処理と、「その歩で何をするか」を決める側を切り離す。記録と再生が、部品を1つ挟むだけで作れる | [command.ts](typescript/src/patterns/command.ts) | [command.py](python/src/algorithms_and_patterns/patterns/command.py) |
 | Strategy（答え方を差し替える）と登録表 | 同じ問いへの答え方を名前で引けるように並べる。答え方を足すときに、使う側と既存の答え方を触らない | [strategy.ts](typescript/src/patterns/strategy.ts) | [strategy.py](python/src/algorithms_and_patterns/patterns/strategy.py) |
+| Chain of Responsibility（規則を優先順に試す） | 1つの長い if の連なりを、独立した規則の並びにする。規則を足す・外す・入れ替えるのが、並びの1行の操作になる | [chain-of-responsibility.ts](typescript/src/patterns/chain-of-responsibility.ts) | [chain_of_responsibility.py](python/src/algorithms_and_patterns/patterns/chain_of_responsibility.py) |
 
 ### 言語で形が変わったところ
 
@@ -102,6 +103,21 @@ Python だけ `algorithms_and_patterns` という1つのパッケージの下に
   登録表の型として扱われ、元の関数だけが持っていた引数や属性が見えなくなります
   （実行時は元の関数のままです）。元の型のまま使いたい関数は `add` で登録します
 
+#### Chain of Responsibility
+
+- 規則の形：TypeScript は名前と関数を持つオブジェクト、Python はただの関数です。
+  TypeScript の関数の名前（`.name`）は、並びの中にじかに書いた無名関数だと空文字になるので、
+  名前を別に持たせています。Python の `def` は必ず名前（`__name__`）を持ちます。
+  ただし Python でも、ラムダ式の名前は `<lambda>` で、記録には使えません
+- 先頭から答えを探す書き方：Python は `next()` と生成式で1行に書けますが、for 文にしています。
+  生成式の中から StopIteration が出ると、Python は RuntimeError に置き換えます（PEP 479）。
+  規則の中で既定値なしの `next()` を空の並びに使う、というよくある書き間違いが、
+  別の例外に化けて届きます
+- 「次に譲る」を表す値：TypeScript は答えの型から null と undefined を外す制約
+  （`R extends NonNullable<unknown>`）を書けるので、答えに null を使うと型エラーになります。Python の型変数では「`None` 以外」を
+  表せないので、答えに `None` を使わないことは約束として書くしかありません
+- 規則の状況の型の向きは、Command と同じ理由で、TypeScript では関数を持つ項目の形で宣言しています
+
 ## 実際に使った例へのリンク
 
 ここに置いた型は、抽象のまま置いておくだけでは「使えるのか」が分かりません。
@@ -111,6 +127,7 @@ Python だけ `algorithms_and_patterns` という1つのパッケージの下に
 |---|---|---|
 | Command | [animal-bomber](https://github.com/nakatama225/animal-bomber) の操作の出どころ（[IntentSource.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/intent/IntentSource.ts)）と、操作の記録・再生（[InputLog.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/net/InputLog.ts)） | まだ無い（animal-bomber の [Python 版](https://github.com/nakatama225/animal-bomber/tree/main/py)は実装前） |
 | Strategy | animal-bomber の動物ごとの能力。答え方の型と登録表（[Ability.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/abilities/Ability.ts)）、登録を集める1か所（[registry.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/abilities/registry.ts)） | まだ無い |
+| Chain of Responsibility | animal-bomber の CPU の判断。規則の型と先頭から試す関数（[CpuBehavior.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/ai/CpuBehavior.ts)）、規則の並び（[DefaultChain.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/ai/behaviors/DefaultChain.ts)） | まだ無い |
 
 ここに置いた形は、使った先の形をそのまま写したものではありません。使ってみて分かった
 直しを入れてあります。たとえば Command は、歩の番号を処理の側が数えて渡す形にしました。
