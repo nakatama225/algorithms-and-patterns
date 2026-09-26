@@ -1,0 +1,31 @@
+{
+  // 型検査の設定。ここにあるのは実行環境を選ばない部品だけなので、
+  // ブラウザの API（DOM）も Node.js の型定義も入れていない。
+  // 部品の中で document や process と書いた時点で「名前が見つからない」になる。
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "types": [],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+
+    "strict": true,
+    // 配列や辞書の添字アクセスに undefined を含める。範囲外を読んだときに
+    // 「値が無いかもしれない」ことを型で扱わせる。
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noPropertyAccessFromIndexSignature": true,
+
+    "noEmit": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  // 検査ツールの設定ファイルも含める。ESLint は型の情報を使うので、
+  // どの tsconfig にも含まれないファイルがあると、そのファイルで止まる。
+  "include": ["src", "tests", "vitest.config.ts"]
+}

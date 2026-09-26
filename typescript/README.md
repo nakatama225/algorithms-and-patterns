@@ -1,16 +1,24 @@
 # TypeScript 実装
 
-**未着手。** 予定している構成は以下のとおりです。
+**現在の状態（2026年9月）**：`src/patterns/` に設計の型が1つあります。
+`src/lib/` と `src/problems/` はまだありません。
 
 ```text
 typescript/
   package.json
-  tsconfig.json
+  tsconfig.json      型検査の設定。実行環境を選ばない部品だけなので、DOM と Node.js の型を入れていない
+  eslint.config.js   静的検査の設定
+  vitest.config.ts   テストの設定
   src/
-    lib/       共通部品（データ構造・ユーティリティ）
-    patterns/  設計の型（抽象定義）
-    problems/  具体的な解答
-  tests/       src と同じ構造
+    patterns/        設計の型（抽象定義）
+  tests/             src と同じ構造
 ```
 
-構成の理由は[リポジトリ全体の README](../README.md) にあります。
+置いてある型の一覧と、Python 版との違いは[リポジトリ全体の README](../README.md) にあります。
+
+## 検査
+
+```sh
+npm ci
+npm run verify   # 型検査 → 静的検査 → テスト
+```
