@@ -1,6 +1,6 @@
 # Python 実装
 
-**現在の状態（2026年9月）**：`src/algorithms_and_patterns/patterns/` に設計の型が1つあります。
+**現在の状態（2026年9月）**：`src/algorithms_and_patterns/patterns/` に設計の型が2つあります。
 `lib/` と `problems/` はまだありません。
 
 ```text

@@ -4,9 +4,9 @@
 
 アルゴリズムと設計パターンを、再利用できる部品として実装したものです。
 
-**現在の状態（2026年9月）**：設計の型（`patterns/`）を1つ、TypeScript と Python の両方で
+**現在の状態（2026年9月）**：設計の型（`patterns/`）を2つ、TypeScript と Python の両方で
 テストつきで置いています。共通部品（`lib/`）と具体的な解答（`problems/`）はまだありません。
-次に置くのは、残りの設計の型（Strategy・Chain of Responsibility・State）です。
+次に置くのは、残りの設計の型（Chain of Responsibility・State）です。
 
 ---
 
@@ -64,6 +64,7 @@ Python だけ `algorithms_and_patterns` という1つのパッケージの下に
 | 型 | 何を解くか | TypeScript | Python |
 |---|---|---|---|
 | Command（命令を値として渡す） | 1歩ずつ進む処理と、「その歩で何をするか」を決める側を切り離す。記録と再生が、部品を1つ挟むだけで作れる | [command.ts](typescript/src/patterns/command.ts) | [command.py](python/src/algorithms_and_patterns/patterns/command.py) |
+| Strategy（答え方を差し替える）と登録表 | 同じ問いへの答え方を名前で引けるように並べる。答え方を足すときに、使う側と既存の答え方を触らない | [strategy.ts](typescript/src/patterns/strategy.ts) | [strategy.py](python/src/algorithms_and_patterns/patterns/strategy.py) |
 
 ### 言語で形が変わったところ
 
@@ -83,6 +84,24 @@ Python だけ `algorithms_and_patterns` という1つのパッケージの下に
   整数かどうかを実行時に確かめます。Python は `int` があるので、型検査に任せます
 - 記録の探索：Python は標準ライブラリの `bisect` を使い、TypeScript は二分探索を手で書いています
 
+#### Strategy
+
+- 登録の書き方：Python はデコレータ（`@registry.register("名前")`）で、定義と登録を
+  同じ場所に書けます。関数にもクラスにも付けられます。TypeScript のデコレータは
+  クラスとその中身にしか付けられないので、登録は `add` の呼び出しで書きます
+- その代わり、Python のデコレータはモジュールが import されたときに走ります。
+  どこからも import されないモジュールに書いた答え方は、登録されません。
+  答え方を別々のモジュールに分けるなら、登録を集める1か所で、それらを並べて import します。
+  TypeScript は登録を集める1か所で呼び出すので、読み込み方で登録の有無が変わりません。
+  Python でも `add` を1か所で呼べば同じ性質になります。差が出るのはデコレータで書いたときだけです
+- 答え方の型：どちらの言語でも、ただの関数を答え方にできます。ただし Python で
+  `__call__` だけを持つ `Protocol` を答え方の型にすると、型検査（mypy）は引数の名前まで
+  照らし合わせ、名前の違う関数を渡せません。名前を問わないなら、引数を位置専用（`/`）に
+  します。TypeScript の関数の型は、引数の名前を照らし合わせません
+- デコレータを付けたあとの型：Python の型検査の上では、デコレータを付けた関数は
+  登録表の型として扱われ、元の関数だけが持っていた引数や属性が見えなくなります
+  （実行時は元の関数のままです）。元の型のまま使いたい関数は `add` で登録します
+
 ## 実際に使った例へのリンク
 
 ここに置いた型は、抽象のまま置いておくだけでは「使えるのか」が分かりません。
@@ -91,6 +110,7 @@ Python だけ `algorithms_and_patterns` という1つのパッケージの下に
 | 型 | TypeScript | Python |
 |---|---|---|
 | Command | [animal-bomber](https://github.com/nakatama225/animal-bomber) の操作の出どころ（[IntentSource.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/intent/IntentSource.ts)）と、操作の記録・再生（[InputLog.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/net/InputLog.ts)） | まだ無い（animal-bomber の [Python 版](https://github.com/nakatama225/animal-bomber/tree/main/py)は実装前） |
+| Strategy | animal-bomber の動物ごとの能力。答え方の型と登録表（[Ability.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/abilities/Ability.ts)）、登録を集める1か所（[registry.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/abilities/registry.ts)） | まだ無い |
 
 ここに置いた形は、使った先の形をそのまま写したものではありません。使ってみて分かった
 直しを入れてあります。たとえば Command は、歩の番号を処理の側が数えて渡す形にしました。
