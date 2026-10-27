@@ -18,6 +18,8 @@
  *    内側で乱数や時刻を引くと、記録に残らない入力が混ざる
  */
 
+import { bisectRight } from '../lib/bisect.js';
+
 /** 1歩ごとに命令を返すもの。 */
 export interface CommandSource<S, C> {
   /**
@@ -103,20 +105,9 @@ export class CommandLog<C> {
    */
   at(step: number): C {
     checkStep(step);
-    // 記録は昇順なので、二分探索で「step 以下で最後に変わった位置」を探す。
-    let low = 0;
-    let high = this.#steps.length - 1;
-    let found = -1;
-    while (low <= high) {
-      const mid = (low + high) >> 1;
-      if ((this.#steps[mid] as number) <= step) {
-        found = mid;
-        low = mid + 1;
-      } else {
-        high = mid - 1;
-      }
-    }
-    return found < 0 ? this.#idle : (this.#commands[found] as C);
+    // 記録は昇順なので、「step 以下で最後に変わった位置」は二分探索で求められる。
+    const index = bisectRight(this.#steps, step) - 1;
+    return index < 0 ? this.#idle : (this.#commands[index] as C);
   }
 
   /**

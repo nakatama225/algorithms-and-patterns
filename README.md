@@ -4,11 +4,12 @@
 
 アルゴリズムと設計パターンを、再利用できる部品として実装したものです。
 
-**現在の状態（2026年9月）**：設計の型（`patterns/`）を4つ置いています。TypeScript は4つとも
+**現在の状態（2026年10月）**：設計の型（`patterns/`）を4つ置いています。TypeScript は4つとも
 部品とテストがあります。Python は3つに部品とテストがあり、残る State は標準ライブラリで
-足りるので、書き方の見本をテストに置いています。共通部品（`lib/`）と具体的な解答（`problems/`）は
-まだありません。次に足すのは、実際の作品（animal-bomber など）で新しく使った設計の型と、
-問題を解く過程で書いた共通部品・解答です。
+足りるので、書き方の見本をテストに置いています。共通部品（`lib/`）は置き始めたところで、
+いまは TypeScript の二分探索だけです（Python は標準ライブラリの `bisect` で足ります）。
+具体的な解答（`problems/`）はまだありません。次に足すのは、実際の作品（animal-bomber など）で
+使った共通部品と、設計の型に足す部品です。
 
 ---
 
@@ -27,7 +28,7 @@
 ### 1. 3層に分ける
 
 ```text
-lib/       共通部品 — データ構造、計測や整形のユーティリティ
+lib/       共通部品 — データ構造とアルゴリズム、計測や整形のユーティリティ
 patterns/  設計の型 — 問題の種類ごとの解き方を抽象化した定義
 problems/  具体的な解答 — lib と patterns を使って個々の問題を解く
 ```
@@ -35,6 +36,32 @@ problems/  具体的な解答 — lib と patterns を使って個々の問題�
 `problems/` の中は解いた場所（LeetCode / AtCoder など）で分けますが、
 **場所ごとにリポジトリを分けることはしません**。同じ二分木も同じ探索の型も、
 場所をまたいで共有するものだからです。分けた瞬間に共通化ができなくなります。
+
+層の向きは `problems/` → `patterns/` → `lib/` の一方だけです。`lib/` は `patterns/` と
+`problems/` を読み込みません。共通部品が特定の型や問題を知っていると、その型や問題を
+変えるたびに共通部品も変わり、使い回せなくなるためです。逆の向きはよく、たとえば
+TypeScript の Command は `lib/` の二分探索を使っています。
+
+この向きは機械で検査しています。Python はテスト（[test_layers.py](python/tests/test_layers.py)）が
+`lib/` の下のファイルの構文木を読み、TypeScript は静的検査（ESLint）の規則
+`no-restricted-imports` を `src/lib/` に当てています（[eslint.config.js](typescript/eslint.config.js)）。
+検査を書いただけでは、書き誤っていても違反が無ければ通り続けるので、検査が違反を実際に
+見つけることもテストで確認しています（TypeScript は [lint-rules.test.ts](typescript/tests/lint-rules.test.ts)）。
+見ないものもあります。Python は `importlib` などに名前を文字列で渡して読み込むもの、
+TypeScript は `import()` で読み込むものを見ません。
+
+検査が違反を見つけることを確認する進め方は、animal-bomber の境界の検査
+（[guards.test.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/tests/boundary/guards.test.ts)、
+[test_guards.py](https://github.com/nakatama225/animal-bomber/blob/main/py/tests/boundary/test_guards.py)）から
+持ってきました。ただし形を変えています。animal-bomber は違反を書いたファイルを `src/` の下に
+書き出し、検査のコマンドを別のプロセスで動かします。そのため Python 版では、前回の結果を使う
+検査（ruff・mypy・import-linter）に古い答えを返させない指定が要ります。また、どちらの版も
+本物の `src/` に書くので、ほかのテストと並べて実行できません。
+このリポジトリは、違反を文字列のまま検査に渡し、ディスクに書き出しません。
+また animal-bomber は依存の向きに専用のパッケージ（TypeScript は
+[dependency-cruiser](https://github.com/nakatama225/animal-bomber/blob/main/ts/.dependency-cruiser.cjs)、
+Python は import-linter）を使っていますが、このリポジトリは使いません。向きが1本だけなので、
+Python の標準ライブラリの `ast` と ESLint の組み込みの規則で足り、開発用の依存を増やさずに済むためです。
 
 ### 2. 同じ型を2つの言語で実装する
 
@@ -57,10 +84,27 @@ Python だけ `algorithms_and_patterns` という1つのパッケージの下に
 
 ### 3. すべての部品にテストを置く
 
-`tests/` は `src/` と同じ構造にします（例外は Python の State で、部品が無いので
-見本だけをテストに置いています）。テストは、部品が正しく動くことの確認であると同時に、
+`tests/` は `src/` と同じ構造にします。例外は2つで、Python の State は部品が無いので
+見本だけをテストに置いています。層の向きと静的検査の設定を確認するテスト
+（`test_layers.py`・`lint-rules.test.ts`）は、`src/` のどのファイルにも対応しません。
+テストは、部品が正しく動くことの確認であると同時に、
 **その部品が何を保証しているのかの記述**でもあります。エッジケース
 （空、1件、重複、境界値、異常値）を通しておくと、読む人は仕様を読み取れます。
+
+## 置いてある共通部品
+
+| 部品 | 何をするか | TypeScript | Python |
+|---|---|---|---|
+| 二分探索 | 昇順に並んだ列で、値が入る位置を求める。同じ値が続くなら、その最初の位置（`bisectLeft`）か、最後の次の位置（`bisectRight`）を選べる | [bisect.ts](typescript/src/lib/bisect.ts) | 部品は無し（標準の `bisect`。3.10 から `key=`） |
+
+二分探索は、同じものを2か所で手で書いていました。このリポジトリの Command の記録
+（[command.ts](typescript/src/patterns/command.ts) の `at`）と、animal-bomber の操作の記録
+（[InputLog.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/net/InputLog.ts) の `at`）です。
+2か所目を共通化の合図と決めているので、`lib/` に引き上げ、Command はこれを使う形に
+書き換えました（animal-bomber の側は、手で書いたままです）。答えは Python の `bisect_left`・
+`bisect_right` と同じで、違うのは探す値が NaN のときに止まることだけです。Python は止まらずに、
+先頭か末尾の位置を返します。中点は、手で書いていたときの `(low + high) >> 1` をやめ、割り算で
+求めています。`>>` は値を 32 ビットの整数として読むので、和が 2**31 以上になると負になるためです。
 
 ## 置いてある設計の型
 
@@ -80,14 +124,32 @@ Python だけ `algorithms_and_patterns` という1つのパッケージの下に
   TypeScript は使われ方から推し量るので宣言は要りませんが、**メソッドの形で書いた引数は
   向きを検査しません**。そのままだと、より多くを知っている状態を前提にした出どころを
   渡しても型エラーにならず、実行して初めて落ちます。TypeScript 版は関数を持つ項目の形で
-  書き、検査させています（両方の言語に、渡せないことを確かめるテストがあります）
+  書き、検査させています（両方の言語に、渡せないことを確認するテストがあります）。
+  この形は静的検査（ESLint の `method-signature-style`）で強制しているので、新しく書く
+  interface をメソッドの形で書くと、静的検査が止めます。Python の `Protocol` は、型検査（mypy）が
+  向きを検査するので、この設定は要りません
+- 静的検査の規則が働いていることの確認：`method-signature-style` は animal-bomber の設定
+  （[eslint.config.js](https://github.com/nakatama225/animal-bomber/blob/main/ts/eslint.config.js)）から
+  持ってきました。animal-bomber は、引数を狭めた実装が型エラーになることを1つのファイル
+  （[variance.test.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/tests/boundary/variance.test.ts)）に
+  まとめていますが、このリポジトリでは型ごとのテスト（`command.test.ts` と
+  `chain-of-responsibility.test.ts`）に置いています。また animal-bomber は、規則が働いていることを、
+  違反を書いたファイルで検査のコマンドを動かして確認しています。このリポジトリは、
+  規則を外す注釈を付けた違反を1つテストのファイルに置き、
+  注釈が何も外していなければ静的検査を失敗させる設定（`reportUnusedDisableDirectives` を
+  `error`）にしています。規則が働かなくなると注釈が使われなくなり、静的検査が失敗します。
+  この設定は animal-bomber には無く、このリポジトリで足しました。ESLint の既定は警告で、
+  警告だけなら静的検査は成功で終わるので、エラーにしています。ただし注釈で分かるのは
+  規則が外れたことだけで、規則を警告に下げても、当てる範囲を狭めても、注釈は使われたままです。
+  規則がエラーであることと `src/` に当たることは、テスト（[lint-rules.test.ts](typescript/tests/lint-rules.test.ts)）で
+  確認しています
 - 命令が同じかの判定：TypeScript は比べ方を引数で受けます（既定は `Object.is`。
   オブジェクトどうしなら「同じものか」を比べる）。Python は比べ方を命令のクラスの側
   （`__eq__`）が決めるので、引数を設けていません。dataclass は項目ごとに比べる `__eq__` を
   作ります。`__eq__` を持たない普通のクラスは「同じものか」で比べます
 - 歩の番号の確かめ方：TypeScript の `number` は整数と小数を区別しないので、
   整数かどうかを実行時に確かめます。Python は `int` があるので、型検査に任せます
-- 記録の探索：Python は標準ライブラリの `bisect` を使い、TypeScript は二分探索を手で書いています
+- 記録の探索：Python は標準の `bisect`、TypeScript は `lib/` の二分探索（`bisectRight`）を使います
 
 #### Strategy
 

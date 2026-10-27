@@ -8,12 +8,26 @@ import tseslint from 'typescript-eslint';
  * 型の分からない値（any）をそのまま渡し回すことや、待っていない Promise を止める。
  * 型の情報を得るために、検査するファイルはすべて tsconfig.json の include に入っている
  * 必要がある。入っていないファイルは、そのファイルで止まる。
+ *
+ * ここに書いた規則が意図した所で働いていることは、tests/lint-rules.test.ts で確認している。
  */
 export default tseslint.config(
   { ignores: ['node_modules/**', 'coverage/**'] },
 
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
+
+  {
+    // 規則を外す注釈（eslint-disable）が何も外していなければ、エラーにする。
+    // ESLint の既定は警告（warn）で、eslint . は警告だけなら成功で終わるので、
+    // 規則が働かなくなって注釈が使われなくなっても気づけない。
+    // このリポジトリでは、規則を外す注釈を付けた違反を置き、規則が外れていないことを
+    // lint そのもので確認している（tests/lint-rules.test.ts の MethodShaped）。
+    // 規則の強さと当たる範囲は注釈では分からないので、同じファイルのテストで見る。
+    // 型検査の @ts-expect-error（使われないと tsc が失敗する）と同じ働きにする。
+    // animal-bomber の設定には無く、このリポジトリで足した仕組み。
+    linterOptions: { reportUnusedDisableDirectives: 'error' },
+  },
 
   {
     languageOptions: {
@@ -26,6 +40,32 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': [
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
+      // interface と型の中の関数は `commandAt: (step, view) => C` の形で書く。
+      // メソッドの形（`commandAt(step, view): C`）だと、TypeScript は引数の型の向きを
+      // 検査しないので、より多くを知っている状態を前提にした実装を渡しても型エラーに
+      // ならない（README の Command）。クラスの中はメソッドの形のままでよい。
+      // animal-bomber の設定から持ってきた規則。
+      '@typescript-eslint/method-signature-style': ['error', 'property'],
+    },
+  },
+
+  {
+    // 層の向き：lib/ は patterns/ と problems/ を読み込まない（AGENTS.md）。
+    // 共通部品が特定の型や問題を知っている状態にしない。逆の向き（patterns/ から lib/）はよい。
+    // import と export … from に書いた読み込み先の文字列だけを見る。import() で読むものは見ない。
+    files: ['src/lib/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              regex: '(^|/)(patterns|problems)(/|$)',
+              message: 'lib/ は patterns/ と problems/ を読み込まない（AGENTS.md の層の向き）。',
+            },
+          ],
+        },
       ],
     },
   },
