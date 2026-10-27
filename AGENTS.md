@@ -23,6 +23,10 @@ uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pyt
 uv run --isolated --python 3.11 pytest
 ```
 
+TypeScript のテストで `// 言語をまたぐ固定値` の注釈に囲まれた表を書き換えたら、TypeScript だけを
+変えたときも、Python の `uv run pytest` を通す。Python のテスト（`tests/lib/test_cross_language.py`）が
+その表を読み、Python のテストの表と比べている。表を足したら、そのテストの `TABLES` にも足す。
+
 ## このリポジトリ固有の約束
 
 - **層の向きは `problems/` → `patterns/` → `lib/` の一方だけ。逆は依存しない。**

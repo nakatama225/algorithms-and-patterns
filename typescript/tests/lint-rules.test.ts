@@ -56,8 +56,13 @@ describe('層の向き：lib/ は patterns/ と problems/ を読み込まない'
   const RULE = 'no-restricted-imports';
 
   it('src/lib の下のファイルには、下のフォルダの中まで規則が当たる', async () => {
-    // 1つ目は実在するファイル。範囲の書き方を誤って、どのファイルにも当たらなくなったときに失敗する。
-    for (const path of ['src/lib/bisect.ts', 'src/lib/__probe__.ts', 'src/lib/sub/__probe__.ts']) {
+    // 初めの2つは実在するファイル。範囲の書き方を誤って、どのファイルにも当たらなくなったときに失敗する。
+    for (const path of [
+      'src/lib/bisect.ts',
+      'src/lib/rng.ts',
+      'src/lib/__probe__.ts',
+      'src/lib/sub/__probe__.ts',
+    ]) {
       expect(await ruleAt(path, RULE), path).toEqual([2, expect.anything()]);
     }
   });

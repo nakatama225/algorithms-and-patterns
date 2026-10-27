@@ -87,7 +87,9 @@ def test_libの下のどのファイルも_patternsとproblemsを読み込まな
 
 def test_読むファイルの一覧に_libの既知のファイルが入っている() -> None:
     """上の検査の前提。探す場所を誤ると、一覧が空のまま何も読まずに通る。"""
-    assert (SRC / TOP / "lib" / "__init__.py", LIB) in lib_modules(SRC)
+    modules = lib_modules(SRC)
+    assert (SRC / TOP / "lib" / "__init__.py", LIB) in modules
+    assert (SRC / TOP / "lib" / "rng.py", LIB) in modules
 
 
 def test_下のフォルダのファイルも読み_属するパッケージの名前を付ける(

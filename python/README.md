@@ -2,8 +2,8 @@
 
 **現在の状態（2026年10月）**：`src/algorithms_and_patterns/patterns/` に設計の型が3つあります。
 4つ目の State は標準ライブラリ（`typing.assert_never` と `match`）で足りるので、部品を置かず、
-書き方の見本を `tests/patterns/test_state.py` に置いています。`lib/`（共通部品）は置き場を作り、
-層の向きの約束を書いた `__init__.py` だけがあります。TypeScript 版が `lib/` に置いた二分探索は、
+書き方の見本を `tests/patterns/test_state.py` に置いています。`lib/`（共通部品）には
+決定的な擬似乱数（`rng.py`）があります。TypeScript 版が `lib/` に置いた二分探索は、
 標準ライブラリの `bisect` で足りるので置いていません。`problems/` はまだありません。
 
 ```text
@@ -14,10 +14,14 @@ python/
     algorithms_and_patterns/
       py.typed       型注釈つきのパッケージであることの印。これが無いと、ほかのプロジェクトから
                      import したときに型検査が型注釈を読まない
-      lib/           共通部品。patterns/ と problems/ を読み込まない。いまは約束を書いた __init__.py だけ
+      lib/           共通部品。patterns/ と problems/ を読み込まない
       patterns/      設計の型（抽象定義）
   tests/             src と同じ構造。State だけは部品が無く、書き方の見本をテストに置いている
     test_layers.py   lib/ が patterns/ と problems/ を読み込んでいないことの検査。src には対応しない
+    lib/
+      test_rng_derive_seed.py  rng.py の種を導く関数（derive_seed）のテスト。test_rng.py から分けた
+      test_cross_language.py   TypeScript のテストの固定値の表を読み、Python のテストの表と比べる。
+                               python/ の外のファイルを読む、ただ1つのテスト。src には対応しない
 ```
 
 標準ライブラリだけで書いているので、実行に要る依存はありません。

@@ -7,7 +7,8 @@
 **現在の状態（2026年10月）**：設計の型（`patterns/`）を4つ置いています。TypeScript は4つとも
 部品とテストがあります。Python は3つに部品とテストがあり、残る State は標準ライブラリで
 足りるので、書き方の見本をテストに置いています。共通部品（`lib/`）は置き始めたところで、
-いまは TypeScript の二分探索だけです（Python は標準ライブラリの `bisect` で足ります）。
+いまは二分探索（TypeScript だけ。Python は標準ライブラリの `bisect` で足ります）と、
+決定的な擬似乱数の2つです。
 具体的な解答（`problems/`）はまだありません。次に足すのは、実際の作品（animal-bomber など）で
 使った共通部品と、設計の型に足す部品です。
 
@@ -80,13 +81,44 @@ Python だけ `algorithms_and_patterns` という1つのパッケージの下に
 同じ設計の型を2つの言語で書くと、**その言語で自然な形が違う**ことが見えます。
 片方で素直に書ける形が、もう片方では不自然になります。その差そのものが、
 「設計の考え方」と「その言語での書き方」が別物であることの記録になります。
-差は下の「言語で形が変わったところ」にまとめています。
+差は、設計の型は下の「言語で形が変わったところ」に、共通部品は「置いてある共通部品」の
+部品ごとの節にまとめています。
+
+乱数のように、2つの言語で1ビットも違わない値を約束する部品もあります。その値は、両方の
+言語のテストに同じ固定値の表として置いています。ただし、片方の言語の実装と表だけを
+書き換えても、その言語のテストは通ってしまいます。そこで Python のテスト
+（[test_cross_language.py](python/tests/lib/test_cross_language.py)）が TypeScript のテストの
+ファイルを文字列として読み、2つの表が等しいことを検証しています。比べるのは両方向で、
+片方にだけある行も食い違いとして止めます。TypeScript の表は目印の注釈
+（`// 言語をまたぐ固定値：<表の名前> ここから` と `ここまで`）で囲み、1行に1件で書きます。
+囲みの注釈は配列の最初の行と最後の行に置き、そうなっていなければ止めます。囲みの外に置いた
+行は、TypeScript のテストは使うのに、比べられないためです。書き方の崩れた行も読み飛ばさずに
+止め、TypeScript のファイルが無いときも、飛ばさずに失敗させます。
+
+この1か所だけは、上に書いた「検査を言語ごとに完結させる」から外れます。読む側を Python に
+したのは、TypeScript の型検査の設定に Node.js の型を含めておらず（`types` が空）、テストから
+ファイルを読む `node:fs` の型が無いためです。表を JSON のファイルに出して両方の言語から読む形は
+選びませんでした。両方の言語の外にある共通の置き場に出すと、どちらの言語のテストも自分の外の
+ファイルを読み、外れる所が2か所に増えます。どちらかの言語の置き場に出しても、期待値がテストの
+そばから離れ、テストだけを読んでも何を検証しているかが分からなくなります。
+
+読み方は、animal-bomber で通信の約束の表を2つの言語で突き合わせるテスト
+（[test_protocol_sync.py](https://github.com/nakatama225/animal-bomber/blob/main/server/tests/test_protocol_sync.py) の
+`ts_table`）から持ってきました。囲みを探し、中の行を1行ずつ書き方と照らし、合わない行で止まる形です。
+animal-bomber の乱数と状態の要約のテスト（[test_rng.py](https://github.com/nakatama225/animal-bomber/blob/main/py/tests/determinism/test_rng.py)、
+[test_statehash.py](https://github.com/nakatama225/animal-bomber/blob/main/py/tests/determinism/test_statehash.py)）は、
+TypeScript 版が出した値を、Python 版のテストに1度貼っただけです。TypeScript 版のテストには
+同じ値が無いので、TypeScript の実装を変えても、どのテストも止まりません。
 
 ### 3. すべての部品にテストを置く
 
-`tests/` は `src/` と同じ構造にします。例外は2つで、Python の State は部品が無いので
+`tests/` は `src/` と同じ構造にします。例外は3つで、Python の State は部品が無いので
 見本だけをテストに置いています。層の向きと静的検査の設定を確認するテスト
-（`test_layers.py`・`lint-rules.test.ts`）は、`src/` のどのファイルにも対応しません。
+（`test_layers.py`・`lint-rules.test.ts`）と、2つの言語の固定値の表を突き合わせるテスト
+（`test_cross_language.py`）は、`src/` のどのファイルにも対応しません。
+反対に、乱数の部品（`rng`）はテストを2つのファイルに分けています。乱数を生成する本体と、
+種を導く関数は変わる理由が違うためです（`rng.test.ts` と `rng-derive-seed.test.ts`、
+Python は `test_rng.py` と `test_rng_derive_seed.py`）。
 テストは、部品が正しく動くことの確認であると同時に、
 **その部品が何を保証しているのかの記述**でもあります。エッジケース
 （空、1件、重複、境界値、異常値）を通しておくと、読む人は仕様を読み取れます。
@@ -96,6 +128,9 @@ Python だけ `algorithms_and_patterns` という1つのパッケージの下に
 | 部品 | 何をするか | TypeScript | Python |
 |---|---|---|---|
 | 二分探索 | 昇順に並んだ列で、値が入る位置を求める。同じ値が続くなら、その最初の位置（`bisectLeft`）か、最後の次の位置（`bisectRight`）を選べる | [bisect.ts](typescript/src/lib/bisect.ts) | 部品は無し（標準の `bisect`。3.10 から `key=`） |
+| 決定的な擬似乱数 | 種を1つ与えれば、言語と版をまたいで同じ並びが出る。生成した回数を外から読め、元を進めずに先を試算する写しを作れる。種と番号から、用途ごとに分けた乱数の種を導ける | [rng.ts](typescript/src/lib/rng.ts) | [rng.py](python/src/algorithms_and_patterns/lib/rng.py) |
+
+### 二分探索
 
 二分探索は、同じものを2か所で手で書いていました。このリポジトリの Command の記録
 （[command.ts](typescript/src/patterns/command.ts) の `at`）と、animal-bomber の操作の記録
@@ -105,6 +140,75 @@ Python だけ `algorithms_and_patterns` という1つのパッケージの下に
 `bisect_right` と同じで、違うのは探す値が NaN のときに止まることだけです。Python は止まらずに、
 先頭か末尾の位置を返します。中点は、手で書いていたときの `(low + high) >> 1` をやめ、割り算で
 求めています。`>>` は値を 32 ビットの整数として読むので、和が 2**31 以上になると負になるためです。
+
+### 決定的な擬似乱数
+
+種を1つ決めれば、同じ並びを何度でも出せる乱数です。記録した入力から同じ結果を作り直す処理や、
+2つの言語で同じ結果を出す処理に使います。アルゴリズムは mulberry32 で、状態は 32 ビットの整数1つです。
+
+- 標準の乱数を使わない理由：TypeScript の `Math.random` は種を渡せません。Python の
+  `random.Random` は種を渡せますが、Python の版をまたいで同じ並びが出ると約束しているのは
+  `random()` だけで、`randrange`・`choice`・`shuffle` は版によって変わりえます（公式文書の再現性の節）
+- 生成する回数：`random`・`below`・`between`・`chance`・`choice` は、1回呼ぶと乱数を必ず1回だけ
+  生成します。`shuffled` は要素の数 - 1 回で、0 個と 1 個なら生成しません。`clone` と種を導く関数は
+  生成しません。`chance(0)` と `chance(1)` も、答えが決まっていても1回生成します。生成する回数が引数や結果で
+  変わると、同じ種でもそれ以降の並びが全部ずれるためです。生成した回数は `calls` で読めます。
+  2つの実行の結果がずれたとき、生成した回数も比べると「どちらかが余計に生成した」まで絞れます
+- 種から種を導く関数（`deriveSeed`・`derive_seed`）：用途ごとに乱数を分けるのに使います。
+  1つの乱数を用途の違う処理で共有すると、片方が生成する回数を変えただけで、もう片方の並びも
+  変わるためです。番号（`stream`）に 1 を足して奇数の 0x9E3779B1 を掛け、元の種との XOR を取ります。
+  番号 0 から 2**32 - 2 までは、どれも互いに違い、元の種とも違う種になります。2**32 - 1 は
+  元の種がそのまま返るので、止めます。導いた種どうしの並びに相関が無いかは測っていません
+- 暗号用途には使えません。約束するのは、同じ種から同じ並びが出ることだけです。
+  先を読まれないことは約束しません
+
+言語で形が変わったところは3つです。
+
+- 32 ビットの演算：TypeScript は `Math.imul`（掛け算の下位 32 ビット）と `>>> 0`
+  （符号なしの 32 ビットに読み直す）で書きます。Python の整数は桁あふれしないので、足し算と
+  掛け算のたびに `& 0xFFFFFFFF` で下位 32 ビットへ切り落とします。1か所でも忘れると並びがずれます
+- 整数の引数の確認：TypeScript の `number` は整数と小数を区別しないので、種・上限・範囲の両端・
+  番号が安全な整数（絶対値が 2**53 未満の整数）かを実行時に確認します。小数や NaN を `>>> 0` に通すと、
+  黙って別の整数になるためです。2**53 以上の数は、受け取った時点ですでに丸められているかもしれないので、
+  これも止めます。Python は `int` の型で受けるので、整数かどうかは型検査に任せます。種と範囲の両端は、
+  Python ではどんな大きさの整数も受けます（種は下位 32 ビットだけを使います）。上限と範囲の幅
+  （`stop - start`）は、両方の言語とも 2**53 - 1 までで、超えれば乱数を生成する前に止めます。
+  これより大きい値は TypeScript 版が正確に表せず、2つの言語で同じ答えを約束できないためです
+- 混ぜ方：どちらも Fisher–Yates で、渡した列を書き換えずに新しい列を返します（名前は `sorted` に
+  合わせて `shuffled`）。TypeScript で `sort(() => rng.random() - 0.5)` と書くと、比べた結果が
+  矛盾し、並びが並べ替えの実装に左右されます。Python で `sorted(items, key=lambda _: rng.random())`
+  と書くと、並びは決まりますが、生成する回数が要素の数になり、TypeScript 版と並びがそろいません
+
+2つの言語で同じ値が出ることは、両方のテストに置いた同じ固定値の表で検証しています
+（Design Choice の 2）。表の値は2つの言語の実装で別々に出して一致を確認し、animal-bomber の
+Python 版のテスト（[test_rng.py](https://github.com/nakatama225/animal-bomber/blob/main/py/tests/determinism/test_rng.py)）に
+貼ってある TypeScript 版の値（種 12345・1・0・0xFFFFFFFF の最初の5つ）とも照らしました。
+
+animal-bomber から持ってきたものと、変えた点は次のとおりです。
+
+- 乱数の本体は、animal-bomber の [rng.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/core/rng.py)
+  （Python）と [Rng.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/core/Rng.ts)（TypeScript）です。
+  animal-bomber の原型（ブラウザで動く1つの HTML ファイルで書いた最初の版）は、1つの `Math.random` を44か所で共有していて、見た目だけの粒子を1つ多く出しただけで、
+  その後の抽選が全部ずれました。そのため結果に関わる乱数をこの形にし、見た目だけの乱数は別の型に
+  しています（[cosmetic_rng.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/presentation/cosmetic_rng.py)、
+  [CosmeticRng.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/presentation/CosmeticRng.ts)）
+- 名前と範囲の決まりは、Python 版にそろえました。TypeScript 版は `next`・`int`・`range`・`pick` と、
+  渡した配列を書き換える `shuffle` で、空の配列から選ぶとき以外は引数の範囲を確認していませんでした。
+  このリポジトリでは、両方の言語を `random`・`below`・`between`・`chance`・`choice`・`shuffled` に
+  そろえ、TypeScript でも範囲の外の引数で止めます
+- 種から種を導く式は、CPU の判断に専用の乱数を持たせる所（[source.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/ai/source.py) の
+  `cpu_seed`、[CpuInputSource.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/ai/CpuInputSource.ts) の `cpuSeed`）と
+  同じです。CPU が試合の乱数を使うと、CPU が考えた回数でアイテムの抽選が変わるので、試合の種と
+  プレイヤーの番号から CPU の種を導いています。番号の範囲を決めて、外なら止めるのは、このリポジトリで足しました
+- ラウンドごとの種（[match.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/rules/match.py) の
+  `seed_for_round`、[MatchConfig.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/rules/MatchConfig.ts) の
+  `seedForRound`）は、同じ考えを足し算で書いた例です（試合の種 + ラウンドの番号 × 0x9E3779B1）。
+  こちらは番号 0 で元の種がそのまま返ります。このリポジトリは XOR の形にそろえました
+
+種を渡し忘れて結果が振れたことは、ほかの作品でもありました。[data-science-portfolio](https://github.com/nakatama225/data-science-portfolio) の
+機械学習の比較（[training.py](https://github.com/nakatama225/data-science-portfolio/blob/main/ibm-capstone-spacex/src/spacex_capstone/modeling/training.py) の
+`default_model_specs`）では、決定木に種を渡していなかったため、検証データの正解率が実行ごとに
+0.722 と 0.667 に振れ、モデルを良くしたのか偶然良く出たのかを区別できませんでした。
 
 ## 置いてある設計の型
 
