@@ -51,6 +51,8 @@ export default tseslint.config(
   },
 
   {
+    // lib/ だけに当てる規則。規則が意図した所で働いていることは tests/lint-rules.test.ts で見る。
+    //
     // 層の向き：lib/ は patterns/ と problems/ を読み込まない（AGENTS.md）。
     // 共通部品が特定の型や問題を知っている状態にしない。逆の向き（patterns/ から lib/）はよい。
     // import と export … from に書いた読み込み先の文字列だけを見る。import() で読むものは見ない。
@@ -65,6 +67,39 @@ export default tseslint.config(
               message: 'lib/ は patterns/ と problems/ を読み込まない（AGENTS.md の層の向き）。',
             },
           ],
+        },
+      ],
+      // 決定性：lib/ の部品は、同じ入力から、起動のたびに同じ結果を出す
+      // （README の「決定性を崩す書き方の検査」）。乱数と時刻は引数で受け取る。
+      // Math.random と Date は ES2022 の一部で、import しなくても使えるので、ここで止める。
+      // performance.now や setTimeout は、tsconfig.json の型（ES2022 だけ）に無いので、
+      // 型検査が先に止める。
+      'no-restricted-properties': [
+        'error',
+        {
+          object: 'Math',
+          property: 'random',
+          message: 'lib/ では乱数を引数で受け取る（lib/rng.ts の Rng など）。',
+        },
+        {
+          object: 'Date',
+          property: 'now',
+          message: 'lib/ では時刻を引数で受け取る。',
+        },
+      ],
+      'no-restricted-syntax': [
+        'error',
+        {
+          // `new Date()` は引数が無ければ、`new` を付けない `Date()` は引数を渡しても、いまの時刻になる。
+          // 時刻を渡す形（`new Date(0)`）も止める。lib/ では Date を作らない。
+          selector: ':matches(NewExpression, CallExpression)[callee.name="Date"]',
+          message: 'lib/ では時刻を引数で受け取る。',
+        },
+        {
+          // 仕様が順を実装に任せる場合があり、継承した項目まで並べる。
+          selector: 'ForInStatement',
+          message:
+            'for...in は使わない。順が要る並びは配列、名前と値の組は Map（入れた順を保つ）で持つ。',
         },
       ],
     },

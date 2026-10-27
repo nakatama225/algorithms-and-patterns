@@ -8,7 +8,7 @@
 部品とテストがあります。Python は3つに部品とテストがあり、残る State は標準ライブラリで
 足りるので、書き方の見本をテストに置いています。共通部品（`lib/`）は置き始めたところで、
 いまは二分探索（TypeScript だけ。Python は標準ライブラリの `bisect` で足ります）と、
-決定的な擬似乱数の2つです。
+決定的な擬似乱数と、状態の要約の3つです。
 具体的な解答（`problems/`）はまだありません。次に足すのは、実際の作品（animal-bomber など）で
 使った共通部品と、設計の型に足す部品です。
 
@@ -84,12 +84,13 @@ Python だけ `algorithms_and_patterns` という1つのパッケージの下に
 差は、設計の型は下の「言語で形が変わったところ」に、共通部品は「置いてある共通部品」の
 部品ごとの節にまとめています。
 
-乱数のように、2つの言語で1ビットも違わない値を約束する部品もあります。その値は、両方の
+乱数や状態の要約のように、2つの言語で1ビットも違わない値を約束する部品もあります。その値は、両方の
 言語のテストに同じ固定値の表として置いています。ただし、片方の言語の実装と表だけを
 書き換えても、その言語のテストは通ってしまいます。そこで Python のテスト
 （[test_cross_language.py](python/tests/lib/test_cross_language.py)）が TypeScript のテストの
 ファイルを文字列として読み、2つの表が等しいことを検証しています。比べるのは両方向で、
-片方にだけある行も食い違いとして止めます。TypeScript の表は目印の注釈
+片方にだけある行も食い違いとして止めます。0.0 と -0.0 は `==` では等しいですが、別の値として
+比べます。TypeScript の表は目印の注釈
 （`// 言語をまたぐ固定値：<表の名前> ここから` と `ここまで`）で囲み、1行に1件で書きます。
 囲みの注釈は配列の最初の行と最後の行に置き、そうなっていなければ止めます。囲みの外に置いた
 行は、TypeScript のテストは使うのに、比べられないためです。書き方の崩れた行も読み飛ばさずに
@@ -113,8 +114,8 @@ TypeScript 版が出した値を、Python 版のテストに1度貼っただけ�
 ### 3. すべての部品にテストを置く
 
 `tests/` は `src/` と同じ構造にします。例外は3つで、Python の State は部品が無いので
-見本だけをテストに置いています。層の向きと静的検査の設定を確認するテスト
-（`test_layers.py`・`lint-rules.test.ts`）と、2つの言語の固定値の表を突き合わせるテスト
+見本だけをテストに置いています。層の向き・決定性を崩す書き方・静的検査の設定を確認するテスト
+（`test_layers.py`・`test_determinism_guard.py`・`lint-rules.test.ts`）と、2つの言語の固定値の表を突き合わせるテスト
 （`test_cross_language.py`）は、`src/` のどのファイルにも対応しません。
 反対に、乱数の部品（`rng`）はテストを2つのファイルに分けています。乱数を生成する本体と、
 種を導く関数は変わる理由が違うためです（`rng.test.ts` と `rng-derive-seed.test.ts`、
@@ -129,6 +130,12 @@ Python は `test_rng.py` と `test_rng_derive_seed.py`）。
 |---|---|---|---|
 | 二分探索 | 昇順に並んだ列で、値が入る位置を求める。同じ値が続くなら、その最初の位置（`bisectLeft`）か、最後の次の位置（`bisectRight`）を選べる | [bisect.ts](typescript/src/lib/bisect.ts) | 部品は無し（標準の `bisect`。3.10 から `key=`） |
 | 決定的な擬似乱数 | 種を1つ与えれば、言語と版をまたいで同じ並びが出る。生成した回数を外から読め、元を進めずに先を試算する写しを作れる。種と番号から、用途ごとに分けた乱数の種を導ける | [rng.ts](typescript/src/lib/rng.ts) | [rng.py](python/src/algorithms_and_patterns/lib/rng.py) |
+| 状態の要約 | 状態を、比べられる 32 ビットの数1つにまとめる。何をどの順で混ぜるかは呼ぶ側が決め、同じ値を同じ順で混ぜれば、起動・環境・言語をまたいで同じ要約になる | [state-hash.ts](typescript/src/lib/state-hash.ts) | [state_hash.py](python/src/algorithms_and_patterns/lib/state_hash.py) |
+
+`lib/` の部品は、同じ入力から、起動のたびに同じ結果を出します。固定値の表を持つ部品（乱数と
+状態の要約）は、さらに環境と言語をまたいでも1ビットも違わない値を出します。前の約束を崩す書き方を
+機械で止めていることと、後の約束を守るために使わない計算は、下の「決定性を崩す書き方の検査」に
+書いています。
 
 ### 二分探索
 
@@ -209,6 +216,190 @@ animal-bomber から持ってきたものと、変えた点は次のとおりで
 機械学習の比較（[training.py](https://github.com/nakatama225/data-science-portfolio/blob/main/ibm-capstone-spacex/src/spacex_capstone/modeling/training.py) の
 `default_model_specs`）では、決定木に種を渡していなかったため、検証データの正解率が実行ごとに
 0.722 と 0.667 に振れ、モデルを良くしたのか偶然良く出たのかを区別できませんでした。
+
+### 状態の要約
+
+状態を、比べられる数1つにまとめる部品です。同じ処理を2回走らせた結果や、2つの環境で走らせた
+結果が同じかを、状態の全体を比べずに確認するのに使います。ずれは起きた直後には見えず、
+しばらくたってから原因と離れた所で見えることが多いので、決めた間隔で要約を比べておくと、
+ずれた直後に気づけます。アルゴリズムは FNV-1a（値を1バイトずつ混ぜていく、短い要約の作り方）の
+32 ビット版です。
+
+- 混ぜる順：何をどの順で混ぜるかは呼ぶ側が決めて、固定します。順が変われば、同じ状態でも
+  別の値になります。値の種類（整数か文字列か）は混ぜないので、真偽値は 1 と 0 の整数と、
+  空の文字列は整数 0 と同じ要約になります。種類は、決めた順で決まる前提です
+- 小数：丸めたり文字列にしたりせず、IEEE 754 の 64 ビットのビット列のまま混ぜます。
+  0.1 + 0.2 と 0.3 のようなわずかな差も、`==` では等しい 0.0 と -0.0 も、別の要約になります。
+  数を文字列にしてから混ぜる形は選びませんでした。Python の `repr` と JavaScript の `String` は、
+  整数の値の書き方（`1.0` と `1`）、指数の形で書き始める境目（`1e16` を Python は `1e+16`、
+  JavaScript は 17 桁の整数で書く）、指数の桁の書き方（`1e-07` と `1e-7`）の3つで違うためです
+- 文字列：UTF-8 のバイト列のあとに、そのバイトの数を混ぜます。数を混ぜないと、'ab' と 'c' を
+  続けて混ぜた要約と、'a' と 'bc' を続けて混ぜた要約が同じになります。文字の数でなくバイトの数に
+  したのは、文字の数え方が言語で違うためです（'𠮷' を Python の `len` は 1、TypeScript の
+  `length` は 2 と数えます）
+- 整数：-2**31 以上 2**32 未満を受け、32 ビットの2の補数で混ぜます。符号つきと符号なしで同じ
+  ビットの並びになる値（-1 と 0xFFFFFFFF）は、同じ要約になります。符号つきの差と、符号なしの
+  32 ビットの値（乱数の状態など）の両方を受けるためです。範囲の外は、下位 32 ビットに切り落とさずに
+  止めます。切り落とすと、違う値が同じ要約になります
+- 止まるときは、混ぜる前に止まり、それまでの要約を変えません
+- 衝突しない保証は無く、改竄を防ぐ用途には使えません。約束するのは、同じ値を同じ順で混ぜれば
+  同じ要約になることだけです
+
+言語で形が変わったところは3つです。
+
+- 文字列のバイト列：TypeScript は、型の設定が ES2022 だけで `TextEncoder` が型に無いので、
+  UTF-8 のバイト列を符号位置（Unicode が文字に振った番号）から手で組みます。サロゲート
+  （U+D800〜U+DFFF。UTF-16 が U+10000 以上の文字を2つの値の対で表すのに使う範囲で、1つだけでは
+  文字を表しません）を除く全部の符号位置で、`TextEncoder` と同じバイト列になることを、組んだときに
+  確認しました。Python は `str.encode` です
+- 小数のビット列：TypeScript は `DataView` の `setFloat64` で、下位のバイトから並べる順を指定して
+  書き出します。`Float64Array` で書き出すと、バイトの順が実行環境の順になるためです。Python は
+  `struct` の `<d`（`<` が下位のバイトから並べる指定）です
+- 整数かどうかの確認：TypeScript は、整数でない数（1.5・NaN・無限大）も止めます。`| 0` や `>>> 0` に
+  通すと、1.5 は 1 に、NaN は 0 に、黙って変わるためです。Python は `int` の型で受けるので、
+  型検査に任せます
+
+2つの言語で同じ要約が出ることは、両方のテストに置いた同じ固定値の表（整数・小数・文字列・
+種類の違う値を続けて混ぜたもの、の4つ）で検証しています（Design Choice の 2）。表のセルは数だけ
+なので、文字列は符号位置の並びで書いています。空の要約と、整数・小数・文字列・真偽値・整数を
+この順で混ぜた要約の1つは、animal-bomber の Python 版のテスト
+（[test_statehash.py](https://github.com/nakatama225/animal-bomber/blob/main/py/tests/determinism/test_statehash.py)）に
+貼ってある TypeScript 版の値とも同じです。
+
+animal-bomber から持ってきたものと、変えた点は次のとおりです。
+
+- 要約の本体は、animal-bomber の [statehash.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/core/statehash.py)
+  （Python）と [StateHash.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/core/StateHash.ts)（TypeScript）です。
+  記録した操作から同じ結果を作り直せるかの確認と、通信で2つの端末が同じ状態にあるかの突き合わせに
+  使っています（[world.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/state/world.py) の
+  `hash_world`、[WorldState.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/state/WorldState.ts) の `hashWorld`）
+- 混ぜるバイトの並びを、2つの言語で1つに決めました。animal-bomber は、文字列を TypeScript 版が
+  UTF-16 の符号単位（`charCodeAt` の値）と `length` で、Python 版が UTF-8 のバイトとバイトの数で
+  混ぜていて、ASCII の外では2つの版の要約がそろいませんでした。Python 版のテストが TypeScript 版の
+  値と比べているのも、ASCII の文字列だけです。小数も、TypeScript 版は `Float64Array` で書き出していて、
+  バイトの順を実行環境に任せていました
+- 止める値を3つ足しました。どれも animal-bomber には無い約束です
+  - NaN：ECMAScript の仕様は、NaN を書き出したときのビット列を、実装が選んでよいとしています
+    （`DataView` の `setFloat64` が通る手順の NumericToRawBytes。同じ NaN には同じビット列を選ぶことだけを
+    求めています）。Python でも、NaN のビット列は作り方で変わります（`math.nan` と `-math.nan` は
+    符号のビットが違います）。同じ「NaN」が同じ要約になる保証が無いので、混ぜずに止めます。
+    animal-bomber は、どちらの版も NaN を混ぜていました
+  - 対になっていないサロゲート（'\ud800' など）：UTF-8 にできません。Python の `str.encode` は止まり、
+    `TextEncoder` は U+FFFD（置き換えの文字）に置き換えます。置き換えると違う文字列が同じ要約になる
+    ので、TypeScript でも止めます
+  - TypeScript の整数でない数（1.5 など）：animal-bomber の TypeScript 版は `value | 0` で、範囲の外も
+    小数も黙って 32 ビットの整数にしていました。Python 版は範囲の外を止めていたので、範囲はそれに
+    そろえ、TypeScript では小数も止めます
+
+使ってみて分かったこともあります。結果を左右する値を状態に足したら、要約にも足します。
+animal-bomber では、盤面に置いた物の持ち主を混ぜておらず、持ち主だけが違う2つの状態が、その違いが
+結果に表れるまで同じ要約になっていたことが、後から見つかりました。こうした漏れは、
+状態の項目を1つずつ変えて、要約が変わるかを見るテストで見つけられます（[test_world.py](https://github.com/nakatama225/animal-bomber/blob/main/py/tests/state/test_world.py) の
+`Test状態の要約`）。このリポジトリには要約を作る具体的な状態が無いので、このテストは置いていません。
+状態の種類を閉じた union で表しているなら、要約を作る分岐も、種類を漏れなく扱ったかを型検査が
+確認する形（Python は `match` と `assert_never`、TypeScript は `never` への代入）で書きます。
+種類を足したときに、要約へ混ぜ忘れると型検査が止めます（[world.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/state/world.py) の
+`_hash_life`、[WorldState.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/state/WorldState.ts) の `hashLife`）。
+
+要約は、ずれを見つけるほかにも使えます。状態を読むだけのはずの処理（判断や描画）を呼ぶ前と後で
+要約を比べると、その処理が状態を書き換えていないことを確認できます（[test_cpu.py](https://github.com/nakatama225/animal-bomber/blob/main/py/tests/ai/test_cpu.py) の
+`test_入力を返す前と後で_試合の状態が変わらない`）。要約に乱数の状態と生成した回数も混ぜておくと、
+乱数を余計に生成したずれも見つかり、読むだけのはずの処理が乱数を生成したことも分かります。
+
+### 決定性を崩す書き方の検査
+
+`lib/` の部品の約束は2段です。
+
+- すべての部品：同じ入力から、起動のたびに同じ結果を出します。乱数と時刻は、引数で受け取ります
+- 固定値の表を持つ部品（乱数と状態の要約）：さらに、実行環境と言語をまたいでも、1ビットも違わない
+  値を出します。2つの言語の固定値の表で検証します（Design Choice の 2）
+
+1つ目の約束を崩す書き方のうち、次のものを機械で止めています。
+
+- TypeScript：`Math.random`・`Date.now`・`new Date()`・`Date()`・`for...in`。`Math.random` と `Date` は
+  ES2022 の一部で、import しなくても使えるので、静的検査（ESLint の `no-restricted-properties` と
+  `no-restricted-syntax`）を `src/lib/` に当てています（[eslint.config.js](typescript/eslint.config.js)）。
+  `new Date` は、時刻を引数で渡す形（`new Date(0)`）も止めます。`lib/` では `Date` を作りません。
+  `performance.now`・`setTimeout`・`crypto` は、型の設定（ES2022 だけで、DOM と Node.js の型を
+  入れていない）に無いので、型検査が先に止めます。`for...in` は、並べる順を仕様が実装に任せる
+  場合があり（Proxy や型付き配列がかかわるとき、並べている途中で項目を消したときなど）、継承した
+  項目まで並べます。順が要る並びは配列で、名前と値の組は `Map`（入れた順を保つ）で持ちます
+- Python：`random`・`secrets`・`uuid`・`time`・`datetime` の import と、組み込みの `hash`・`id`。
+  テスト（[test_determinism_guard.py](python/tests/lib/test_determinism_guard.py)）が、`lib/` の下の
+  ファイルの構文木を読みます。乱数と時刻の主な出どころであるこの5つのモジュールは、import しないと
+  使えないので、import で止めます。見るのは、この5つの import だけです（ほかの出どころは、下の
+  「見ないもの」に書きます）。`hash` と `id` は import なしで使え、文字列の `hash` とオブジェクトの
+  `id` は起動のたびに変わります。呼び出しのほか、`sorted(items, key=id)` のような渡し方も見つけます
+
+検査を書いただけでは、書き誤っていても違反が無ければ通り続けます。Python は、禁じる名前の一覧を
+テストに置き、それを正としています。設定から名前を読むだけだと、名前を書き誤っても（`random` を
+`randomx` と書いても）緑のままです。そこで、一覧の名前が実在することと、その名前を使う書き方を
+実際に見つけることを、手で書いた違反の表で確認しています。TypeScript は、違反を1行ずつ書いた文字列を
+静的検査に渡して止まることと、規則がエラーとして `src/lib/` にだけ当たることを、テスト
+（[lint-rules.test.ts](typescript/tests/lint-rules.test.ts)）で確認しています。
+
+見ないものもあります。TypeScript は、別の名前を通した呼び出し（`globalThis.Math.random()`、`Math` を
+別の変数に入れてから呼ぶもの）と、時刻を読むほかの入り口（`Intl.DateTimeFormat` の `format` を
+引数なしで呼ぶもの、など）を見ません。Python は、`importlib` や `__import__` に名前を文字列で渡して
+読み込むもの、`builtins` を別の名前で読み込んでから呼ぶもの、`os` の乱数と実時間（`os.urandom`・
+`os.getrandom`・`os.times`）、`hash` をメソッドとして呼ぶもの（`'a'.__hash__()`）を見ません。
+
+禁じなかったものと、その理由です。
+
+- `round`：Python の `round` は偶数への丸め（`round(2.5)` は 2）で、TypeScript の `Math.round`
+  （`Math.round(2.5)` は 3）と答えが違います。ただ、どちらも同じ入力なら、起動や環境をまたいでも
+  同じ値を返すので、決定性は崩しません。崩すのは2つの言語の一致で、それは2つの言語の固定値の表が
+  見つけます。起動のたびに変わる値は、たまたま同じ値が出た起動では表のテストを通ってしまうので、
+  書き方そのものを止める検査が要ります。表で見つかるものは表に任せ、検査は表で見つけにくいものに
+  絞りました。固定値の表を持つ部品は、`round` と `Math.round` を使わず、整数の割り算や
+  切り捨て・切り上げで書きます。丸めを使う部品を置くときは、ちょうど半分になる入力を表に入れます
+- 三角関数・指数・対数・小数の累乗（`**`・`pow`・`math.pow`・`Math.pow`）：最後の桁が、実行環境や
+  言語によって違うことがあります。累乗は、指数が 2 や 0.5 でも違います。同じ Mac で、Python の
+  `1.509 ** 2` は 2.2770809999999995、JavaScript の `1.509 ** 2` は 2.277081 でした（`1.509 * 1.509` は
+  どちらも 2.277081）。`0.977 ** 0.5` も、Python は 0.9884331034521253、JavaScript は
+  0.9884331034521254 で、平方根（`math.sqrt` と `Math.sqrt`）はどちらも 0.9884331034521254 でした。
+  四則演算と平方根は、IEEE 754 が正確な丸め（真の値にいちばん近い数を返すこと）を求めているので、
+  同じ入力なら環境と言語をまたいでも同じ値になります。固定値の表を持つ部品は、これらの計算を
+  使わず、2乗は `x * x` と掛け算で、平方根は `math.sqrt` と `Math.sqrt` で書きます。食い違う入力は
+  まれで、固定値の表では見つけにくいためです。禁じないのは、固定値の表を持たない部品なら使って
+  よいためです
+- 小数の `sum`：Python 3.12 で小数の合計の出し方が変わり、`sum([0.1] * 10)` は 3.11 では
+  0.9999999999999999、3.12 からは 1.0 です。このリポジトリは、検査を 3.11 と新しい版の両方で通すので、
+  固定値の表が見つけます
+- `set` を順に取り出すこと：Python で文字列や Enum の `set` を順に取り出すと、その順は起動のたびに
+  変わります（並びを決める文字列の `hash` が起動ごとに変わり、Enum の `hash` は名前の文字列の
+  `hash` であるため）。Enum は決まった値に見えるので、気づきにくい所です。いまの `lib/` には
+  `set` を順に取り出す部品が無いので、検査を置いていません。置くときは、`sorted` で順を決めてから
+  取り出します。TypeScript の `Set` と `Map` は入れた順を保つので、この問題はありません
+
+検査の形は animal-bomber から持ってきました。組み込みの関数を構文木で探す検査
+（[test_builtins.py](https://github.com/nakatama225/animal-bomber/blob/main/py/tests/boundary/test_builtins.py)）、
+禁じる名前を正の一覧で持つ形（[banned_names.py](https://github.com/nakatama225/animal-bomber/blob/main/py/tests/boundary/banned_names.py)）、
+ESLint の2つの規則（[eslint.config.js](https://github.com/nakatama225/animal-bomber/blob/main/ts/eslint.config.js)）です。
+禁じる基準（乱数の出どころ・実時間の出どころ・環境で結果が違いうる計算）は
+[01-層とは何か.md](https://github.com/nakatama225/animal-bomber/blob/main/py/docs/01-層とは何か.md) にあります。
+変えた点は次のとおりです。
+
+- 禁じる範囲を狭めました。animal-bomber は、`round`・`sum`・小数の累乗（`pow` と `**`）、三角関数
+  などの `math` の関数、`numpy` と `cmath`、`os` の乱数と実時間（`os.urandom`・`os.getrandom`・
+  `os.times`）、TypeScript の `performance.now` と三角関数なども禁じています。このリポジトリは、
+  上の理由で、`round` と `sum` は固定値の表に任せ、累乗と三角関数など（`cmath` を含みます）は、
+  固定値の表を持つ部品で使わないことにしました。Python で禁じる名前は、乱数と時刻の主な出どころの
+  5つのモジュールと `hash`・`id` に絞り、`os` の3つは見ていません。`lib/` で `os` を使う部品を
+  置くときに、一覧に足すかを決めます。`numpy` は依存に含めていないので、読み込めません。
+  `performance.now` は型検査が止めます
+- 止める書き方を2つ足しました。TypeScript の `new` を付けない `Date()`（引数を渡しても無視し、いまの時刻を
+  文字列で返します）と、Python の `from builtins import id as …` の形です。animal-bomber は、
+  `new` を付けた `Date` と、`builtins.hash` のような属性の形だけを見ています
+- Python の import の検査を、テストの構文木の検査1つにしました。animal-bomber は、ruff の規則（TID251）と
+  import-linter の2つで重ねています。組み込みの関数は ruff の規則では見られず、構文木の検査が要るので、
+  import もそこで見ます。ruff の規則は行末の `# noqa` で黙らせられますが、構文木の検査は
+  行末の注釈では黙りません
+- hash の種を変えた子プロセスで同じ処理を走らせて突き合わせる検査
+  （[test_hashseed.py](https://github.com/nakatama225/animal-bomber/blob/main/py/tests/determinism/test_hashseed.py)）は
+  持ってきていません。上の `set` の段落のとおり、いまの `lib/` には、それで見つかる部品が無いためです。
+  animal-bomber では、要素が2つの文字列の `set` は、3つの種で順がたまたま同じになることが4組に1組ほど
+  あり、種を9つに増やしています
 
 ## 置いてある設計の型
 

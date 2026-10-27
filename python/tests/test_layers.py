@@ -12,7 +12,7 @@
 モジュールの名前を文字列で渡して読み込むものは見ない。
 
 検査を書いただけでは、働いているかは分からない。探す場所を誤ると、何も読まずに通る。
-そのため、読んだファイルの一覧に既知のファイルが入っていることと、上の層を読む書き方を
+そのため、読んだ結果に既知のファイルが入っていることと、上の層を読む書き方を
 実際に見つけることも、ここで確認する。
 """
 
@@ -75,21 +75,50 @@ def upward_imports(source: str, package: str) -> list[str]:
     return found
 
 
-def test_libの下のどのファイルも_patternsとproblemsを読み込まない() -> None:
-    """共通部品が特定の型や問題を知っていると、それを変えるたびに共通部品も変わる。"""
-    offenders = {
-        str(path.relative_to(SRC)): found
-        for path, package in lib_modules(SRC)
-        if (found := upward_imports(path.read_text(encoding="utf-8"), package))
+def scan(src: Path) -> dict[str, list[str]]:
+    """``src`` の下の ``lib`` で読んだすべてのファイルと、それぞれが読み込む上の層。
+
+    上の層を読み込まないファイルも、空の並びで持つ。どのファイルを読んだかを、結果から
+    確認できるようにするため。
+    """
+    return {
+        path.relative_to(src).as_posix(): upward_imports(
+            path.read_text(encoding="utf-8"), package
+        )
+        for path, package in lib_modules(src)
     }
-    assert offenders == {}
 
 
-def test_読むファイルの一覧に_libの既知のファイルが入っている() -> None:
-    """上の検査の前提。探す場所を誤ると、一覧が空のまま何も読まずに通る。"""
-    modules = lib_modules(SRC)
-    assert (SRC / TOP / "lib" / "__init__.py", LIB) in modules
-    assert (SRC / TOP / "lib" / "rng.py", LIB) in modules
+def test_libの下のどのファイルも_patternsとproblemsを読み込まない() -> None:
+    """共通部品が特定の型や問題を知っていると、それを変えるたびに共通部品も変わる。
+
+    読んだファイルに既知のファイルが入っていることも、読んだ結果で確認する。探す場所を
+    誤ると、何も読まずに通る。読む前の一覧で確認すると、読む所だけが別の場所を
+    指したときに気づけない。
+    """
+    results = scan(SRC)
+    assert f"{TOP}/lib/__init__.py" in results
+    assert f"{TOP}/lib/rng.py" in results
+    assert f"{TOP}/lib/state_hash.py" in results
+    assert {path: found for path, found in results.items() if found} == {}
+
+
+def test_libの下のフォルダの奥まで読み_libの外は読まない(tmp_path: Path) -> None:
+    """読む所が中身を見ずに空の並びを返しても、上の本物の検査は通ってしまう。"""
+    lib = tmp_path / TOP / "lib"
+    (lib / "sub").mkdir(parents=True)
+    (lib / "__init__.py").write_text("", encoding="utf-8")
+    (lib / "sub" / "__init__.py").write_text("", encoding="utf-8")
+    deep = lib / "sub" / "deep.py"
+    deep.write_text("from ...patterns import command\n", encoding="utf-8")
+    (tmp_path / TOP / "patterns").mkdir()
+    outside = tmp_path / TOP / "patterns" / "outside.py"
+    outside.write_text("from ..problems import example\n", encoding="utf-8")
+    assert scan(tmp_path) == {
+        f"{TOP}/lib/__init__.py": [],
+        f"{TOP}/lib/sub/__init__.py": [],
+        f"{TOP}/lib/sub/deep.py": [PATTERNS],
+    }
 
 
 def test_下のフォルダのファイルも読み_属するパッケージの名前を付ける(

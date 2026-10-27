@@ -38,6 +38,20 @@ TypeScript のテストで `// 言語をまたぐ固定値` の注釈に囲ま�
   `tests/lint-rules.test.ts` がその規則が違反を止めることを確認する。
   `patterns/` が `problems/` を読み込まないことは、`problems/` がまだ無いので検査していない。
   `problems/` を作るときに、この向きの検査も一緒に足す
+- **`lib/` の部品は、同じ入力から、起動のたびに同じ結果を出す。乱数と時刻は引数で受け取る。**
+  固定値の表を持つ部品（乱数・状態の要約）は、さらに環境と言語をまたいで同じ値を出す。
+  起動のたびに同じ結果を出す約束を崩す書き方は、機械で止めている。Python は `tests/lib/test_determinism_guard.py` が
+  `lib/` の下の構文木を読み、`random`・`secrets`・`uuid`・`time`・`datetime` の import と、
+  組み込みの `hash`・`id` を止める。禁じる名前は、そのテストの一覧が正。名前を足すときは、
+  その名前を使う違反の行も同じテストの表に足す（足さないと、一覧と表を照らすテストが止まる）。
+  TypeScript は `eslint.config.js` が `src/lib/` に `Math.random`・`Date.now`・`Date`・`for...in` を
+  止める規則を当て、`tests/lint-rules.test.ts` がそれを確認する。`round` と三角関数などを
+  禁じていない理由と、固定値の表を持つ部品で使わない計算は、README
+  「決定性を崩す書き方の検査」にある
+- **`lib/` にファイルを足したら、検査が読んだはずのファイルの一覧にも足す。**
+  `tests/test_layers.py` と `tests/lib/test_determinism_guard.py` の既知のファイル、
+  `tests/lint-rules.test.ts` の実在するファイル。探す場所を誤ったまま何も読まずに通ることを、
+  この一覧で防いでいる
 - **`tests/lint-rules.test.ts` の規則を外す注釈（`eslint-disable-next-line`）は消さない。**
   静的検査の規則が働いていることを、わざと置いた違反で確認している。注釈が何も外さなくなると
   静的検査が失敗する設定（`reportUnusedDisableDirectives`）なので、そこで失敗したら、

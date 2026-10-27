@@ -1,13 +1,14 @@
 # TypeScript 実装
 
-**現在の状態（2026年10月）**：`src/patterns/` に設計の型が4つ、`src/lib/` に共通部品が2つ
-（二分探索と決定的な擬似乱数）あります。`src/problems/` はまだありません。
+**現在の状態（2026年10月）**：`src/patterns/` に設計の型が4つ、`src/lib/` に共通部品が3つ
+（二分探索と決定的な擬似乱数と状態の要約）あります。`src/problems/` はまだありません。
 
 ```text
 typescript/
   package.json
   tsconfig.json      型検査の設定。実行環境を選ばない部品だけなので、DOM と Node.js の型を入れていない
-  eslint.config.js   静的検査の設定。src/lib/ が src/patterns/ と src/problems/ を読み込むことも止める
+  eslint.config.js   静的検査の設定。src/lib/ では、src/patterns/ と src/problems/ を読み込むことと、
+                     乱数と時刻を引数で受け取らずに使うこと（Math.random・Date）と for...in も止める
   vitest.config.ts   テストの設定
   src/
     lib/             共通部品
@@ -17,7 +18,8 @@ typescript/
     lib/
       rng.test.ts              src/lib/rng.ts の乱数の本体（Rng）のテスト
       rng-derive-seed.test.ts  src/lib/rng.ts の種を導く関数（deriveSeed）のテスト
-                               この2つの固定値の表は Python のテストも読む。書き換えたら
+      state-hash.test.ts       src/lib/state-hash.ts の状態の要約（StateHasher）のテスト
+                               この3つのファイルの固定値の表は Python のテストも読む。書き換えたら
                                Python のテストも走らせる
 ```
 

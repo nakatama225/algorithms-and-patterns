@@ -25,6 +25,7 @@ TypeScript のテストは、表を次の形で書く。囲みの注釈は配列
 ``node:fs`` の型が無いため。
 """
 
+import math
 import re
 from collections import Counter
 from pathlib import Path
@@ -33,10 +34,12 @@ import pytest
 
 from .test_rng import FIRST_VALUES, SHUFFLED
 from .test_rng_derive_seed import DERIVED_SEEDS
+from .test_state_hash import FLOAT_HASHES, INT_HASHES, MIXED_HASHES, TEXT_HASHES
 
 TS_TESTS = Path(__file__).resolve().parents[3] / "typescript" / "tests"
 RNG_TEST = TS_TESTS / "lib" / "rng.test.ts"
 DERIVE_SEED_TEST = TS_TESTS / "lib" / "rng-derive-seed.test.ts"
+STATE_HASH_TEST = TS_TESTS / "lib" / "state-hash.test.ts"
 
 MARK = "// 言語をまたぐ固定値："
 # 囲みの始まりの注釈。名前を取り出す。
@@ -59,6 +62,21 @@ TABLES: dict[str, tuple[Path, list[Row]]] = {
     "DERIVED_SEEDS": (
         DERIVE_SEED_TEST,
         [(seed, stream, derived) for (seed, stream), derived in DERIVED_SEEDS.items()],
+    ),
+    # 状態の要約の表は、要約を先頭に置く。TypeScript の表のセルは数だけなので、
+    # 文字列は符号位置の並びに、真偽値は 1 と 0 にして比べる。
+    "INT_HASHES": (STATE_HASH_TEST, [(h, *values) for values, h in INT_HASHES]),
+    "FLOAT_HASHES": (STATE_HASH_TEST, [(h, *values) for values, h in FLOAT_HASHES]),
+    "TEXT_HASHES": (
+        STATE_HASH_TEST,
+        [(h, *map(ord, text)) for text, h in TEXT_HASHES],
+    ),
+    "MIXED_HASHES": (
+        STATE_HASH_TEST,
+        [
+            (h, first, value, int(flag), last, *map(ord, text))
+            for (first, value, text, flag, last), h in MIXED_HASHES
+        ],
     ),
 }
 
@@ -110,10 +128,26 @@ def mismatches(ts_rows: list[Row], py_rows: list[Row]) -> tuple[list[Row], list[
     """TypeScript の側にだけある行と、Python の側にだけある行を返す。
 
     並びの順は問わない。同じ行の数は比べる（片方で2回書いた行は、1回ぶんを片方に
-    だけある行として返す）。整数と、それと等しい小数は同じとみなす。
+    だけある行として返す）。整数と、それと等しい小数は同じとみなす。0.0 と -0.0 は
+    別の値とみなす（状態の要約では、ビット列が違うので別の要約になる）。
     """
-    ts, py = Counter(ts_rows), Counter(py_rows)
-    return list((ts - py).elements()), list((py - ts).elements())
+    ts, py = Counter(map(_key, ts_rows)), Counter(map(_key, py_rows))
+    return _only(ts_rows, ts - py), _only(py_rows, py - ts)
+
+
+def _key(row: Row) -> tuple[object, ...]:
+    """比べるための形。0.0 と -0.0 は ``==`` で等しいので、0 には符号を添える。"""
+    return tuple((cell, math.copysign(1, cell)) if cell == 0 else cell for cell in row)
+
+
+def _only(rows: list[Row], extra: Counter[tuple[object, ...]]) -> list[Row]:
+    """``rows`` のうち、``extra`` に数が残っている行を、残っている数だけ返す。"""
+    found: list[Row] = []
+    for row in rows:
+        if extra[_key(row)] > 0:
+            extra[_key(row)] -= 1
+            found.append(row)
+    return found
 
 
 @pytest.mark.parametrize("name", list(TABLES))
@@ -246,3 +280,12 @@ class Test食い違いの見つけ方:
 
     def test_並びの順は問わず_整数と等しい小数は同じとみなす(self) -> None:
         assert mismatches([(1, 2), (3, 4)], [(3, 4.0), (1, 2)]) == ([], [])
+        assert mismatches([(1, 0)], [(1, 0.0)]) == ([], [])
+
+    def test_0と_マイナス0は別の値とみなす(self) -> None:
+        """``==`` のまま数えると、要約の列だけを入れ替えた2行の食い違いを見逃す。"""
+        ts: list[Row] = [(1, 0.0), (2, -0.0)]
+        py: list[Row] = [(1, -0.0), (2, 0.0)]
+        only_ts, only_py = mismatches(ts, py)
+        assert [math.copysign(1, row[1]) for row in only_ts] == [1, -1]
+        assert [math.copysign(1, row[1]) for row in only_py] == [-1, 1]
