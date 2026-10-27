@@ -8,7 +8,7 @@
 部品とテストがあります。Python は3つに部品とテストがあり、残る State は標準ライブラリで
 足りるので、書き方の見本をテストに置いています。共通部品（`lib/`）は置き始めたところで、
 いまは二分探索（TypeScript だけ。Python は標準ライブラリの `bisect` で足ります）と、
-決定的な擬似乱数と、状態の要約の3つです。
+決定的な擬似乱数と、状態の要約と、固定刻みの時間（待つ部品は Python だけ）の4つです。
 具体的な解答（`problems/`）はまだありません。次に足すのは、実際の作品（animal-bomber など）で
 使った共通部品と、設計の型に足す部品です。
 
@@ -113,13 +113,16 @@ TypeScript 版が出した値を、Python 版のテストに1度貼っただけ�
 
 ### 3. すべての部品にテストを置く
 
-`tests/` は `src/` と同じ構造にします。例外は3つで、Python の State は部品が無いので
+`tests/` は `src/` と同じ構造にします。例外は4つで、Python の State は部品が無いので
 見本だけをテストに置いています。層の向き・決定性を崩す書き方・静的検査の設定を確認するテスト
 （`test_layers.py`・`test_determinism_guard.py`・`lint-rules.test.ts`）と、2つの言語の固定値の表を突き合わせるテスト
-（`test_cross_language.py`）は、`src/` のどのファイルにも対応しません。
+（`test_cross_language.py`）と、テストが使う偽の時計（Python の `fake_time.py`）は、`src/` のどのファイルにも対応しません。
 反対に、乱数の部品（`rng`）はテストを2つのファイルに分けています。乱数を生成する本体と、
 種を導く関数は変わる理由が違うためです（`rng.test.ts` と `rng-derive-seed.test.ts`、
-Python は `test_rng.py` と `test_rng_derive_seed.py`）。
+Python は `test_rng.py` と `test_rng_derive_seed.py`）。固定刻みの時間（`fixed_step`）も、同じ理由で、
+経過時間を刻みの数に換える部品と倍率の部品のテストを分けています（`fixed-step.test.ts` と
+`fixed-step-rate.test.ts`、Python は `test_fixed_step.py` と `test_fixed_step_rate.py`）。Python は、
+待つ部品のテストも `test_fixed_step_frames.py` に分けています。
 テストは、部品が正しく動くことの確認であると同時に、
 **その部品が何を保証しているのかの記述**でもあります。エッジケース
 （空、1件、重複、境界値、異常値）を通しておくと、読む人は仕様を読み取れます。
@@ -131,6 +134,7 @@ Python は `test_rng.py` と `test_rng_derive_seed.py`）。
 | 二分探索 | 昇順に並んだ列で、値が入る位置を求める。同じ値が続くなら、その最初の位置（`bisectLeft`）か、最後の次の位置（`bisectRight`）を選べる | [bisect.ts](typescript/src/lib/bisect.ts) | 部品は無し（標準の `bisect`。3.10 から `key=`） |
 | 決定的な擬似乱数 | 種を1つ与えれば、言語と版をまたいで同じ並びが出る。生成した回数を外から読め、元を進めずに先を試算する写しを作れる。種と番号から、用途ごとに分けた乱数の種を導ける | [rng.ts](typescript/src/lib/rng.ts) | [rng.py](python/src/algorithms_and_patterns/lib/rng.py) |
 | 状態の要約 | 状態を、比べられる 32 ビットの数1つにまとめる。何をどの順で混ぜるかは呼ぶ側が決め、同じ値を同じ順で混ぜれば、起動・環境・言語をまたいで同じ要約になる | [state-hash.ts](typescript/src/lib/state-hash.ts) | [state_hash.py](python/src/algorithms_and_patterns/lib/state_hash.py) |
+| 固定刻みの時間 | 揺れる実時間を、長さの決まった刻みを何回進めるかに換える。端数は持ち越し、遅れすぎた分は捨てる。倍率は、刻みの長さを変えずに、進める回数で表す | [fixed-step.ts](typescript/src/lib/fixed-step.ts)（待つ部品は無し） | [fixed_step.py](python/src/algorithms_and_patterns/lib/fixed_step.py) |
 
 `lib/` の部品は、同じ入力から、起動のたびに同じ結果を出します。固定値の表を持つ部品（乱数と
 状態の要約）は、さらに環境と言語をまたいでも1ビットも違わない値を出します。前の約束を崩す書き方を
@@ -305,6 +309,140 @@ animal-bomber では、盤面に置いた物の持ち主を混ぜておらず、
 要約を比べると、その処理が状態を書き換えていないことを確認できます（[test_cpu.py](https://github.com/nakatama225/animal-bomber/blob/main/py/tests/ai/test_cpu.py) の
 `test_入力を返す前と後で_試合の状態が変わらない`）。要約に乱数の状態と生成した回数も混ぜておくと、
 乱数を余計に生成したずれも見つかり、読むだけのはずの処理が乱数を生成したことも分かります。
+
+### 固定刻みの時間
+
+実時間で動く処理を、長さの決まった刻みの繰り返しで進めるための部品です。1回呼ぶと1刻み進む
+処理には経過時間を渡さず、実時間を「いま何刻み進めるか」に換える所を1か所にします。1刻みの
+中身が機械の速さやフレームの揺れで変わらないので、同じ操作から同じ結果が出ます。
+
+- 端数の持ち越し（`StepAccumulator`）：経過時間をナノ秒の整数で受け、「ナノ秒 × 1秒あたりの
+  刻みの数」の整数で積みます。この単位では1刻みがちょうど 10 億になり、割った余りが正確に残る
+  ので、何時間続けても1秒あたりの刻みの数はずれません。負の経過時間は、0 に丸めずに止めます
+- 遅れすぎた分：1回に返す刻みの数には上限を置き（`max_steps`・`maxSteps`）、上限を超えたら
+  上限を返して、端数も捨てます。機械がスリープから戻ったときなどに、遅れた分を全部まとめて
+  進めると、進め終わらないうちに次の刻みの時刻が来て、遅れが積み上がるためです。上限ちょうど
+  までは、端数を残します
+- 次の刻みまでの時間（`ns_to_next_step`・`nsToNextStep`）：切り上げます。切り捨てると、その時刻
+  ちょうどに目を覚ましても1刻みにわずかに足りず、0刻みのフレームになります。そのあと次の刻みまでの
+  時間が 0 になり、呼ぶ側の輪が待たずに回ります（時計が進まなければ、0刻みのフレームが続きます）
+- 倍率（`RateScaler`）：倍速と低速は、刻みの長さを変えずに、進める回数で表します。0.5 倍なら
+  2フレームに1回、1.5 倍なら1回と2回を交互に進め、端数は持ち越します。止めるときは呼ばず、
+  倍率 0 は受けません
+- 描く値を混ぜる割合（`blend`）：倍率が整数でないと、1フレームに進む刻みの数が揃わず、進めた
+  刻みの値をそのまま描くとコマ送りに見えます。1つ前の刻みの値に、持ち越した端数の割合だけ
+  寄せて描けば、どのフレームも倍率分ずつ進みます（そのかわり、描く位置はいつも1刻み遅れます）。
+  割合は `take` のときに決めて控え、倍率を替える `set` では変えません。止めている間に倍率を
+  替えても、止まっている絵が動かないようにするためです。ただし、整数と整数でない倍率の間で
+  替えたフレームだけは、進みが倍率分から最大1刻み外れます
+- フレームの輪（`frames`。Python だけ）：次の刻みの時刻まで待ち、前のフレームからの経過時間を
+  刻みの数に換えて返します。次の刻みの時刻は持ち越した端数から毎回計算し直すので、待ちが
+  遅れても、次のフレームでは刻みの境目に戻ります。最初のフレームは待たずに 0 を返し、抜ける
+  ときは `break` します。輪は、進めた刻みを通算で数えません。止めている間も輪は動き続け、
+  進めるかどうかは呼ぶ側が決めるので、輪が数えると、実際に進めた回数とずれます。Command の
+  歩の番号を、処理の側が数えて渡すのと同じ考えです
+- 締め切りまで眠る関数（`sleep_until`。Python だけ）：早く目を覚ましたら、眠り直します。時計と
+  眠る関数は呼ぶ側が渡し、`lib/` は `time` を読み込みません。輪には
+  `functools.partial(sleep_until, sleep=time.sleep)` の形で渡します
+
+この部品は固定値の表を持たず、約束は下の「決定性を崩す書き方の検査」の1つ目（同じ入力から、
+起動のたびに同じ結果を出す）だけです。計算は整数の足し算・掛け算と、切り捨て・切り上げの
+割り算で書き、`round` は使いません。例外は3つで、Python の倍率は分数（`Fraction`）で計算し、
+`progress` と `blend` は小数を返し、`sleep_until` は眠る秒を小数で渡します。
+
+言語で形が変わったところは4つです。
+
+- 時刻の単位：どちらも経過時間をナノ秒の整数で受けます。Python の `time.perf_counter_ns` は
+  ナノ秒の整数を返します。ブラウザの `performance.now()` はミリ秒の小数なので、呼ぶ側は時刻を
+  先にナノ秒の整数に換えてから差を取ります。差を取ってから換えると、換えるときの切り捨ての
+  誤差がフレームごとに積もります
+- 倍率の持ち方：Python は標準の分数（`fractions.Fraction`）で受け、端数も分数で持ちます。分母の
+  違う倍率（1/2 から 1/3）に替えても、端数をそのまま足せます。TypeScript は分母（`parts`）を
+  作るときに決め、分子（`rateParts`）を整数で持ちます。分母は替えられないので、使う倍率が
+  どれも整数の分子で表せる分母を選びます（1/2 と 1/3 を使うなら 6）
+- 整数の引数の確認：TypeScript は、1秒あたりの刻みの数・上限・経過時間・刻みの数・倍率の分母と
+  分子が安全な整数かを、実行時に確認します。1回に返す刻みの数の上限は 9_007_198 までです。
+  (上限 + 1) × 10 億が 2**53 - 1 に収まる範囲で、上限を超えるかを掛け算の前に比べ、2**53 を
+  超えて丸められる掛け算をしないためです。`take` も、端数と「刻みの数 × 分子」の和が 2**53 - 1 を超えるなら、
+  掛ける前に止めます。Python は `int` の型で受け、整数は桁あふれしないので、上限の大きさを
+  限らず、とても長い経過時間（2**64 ナノ秒など）にも上限を返します
+- 待つ部品：Python だけに置いています。Python は描く時刻を自分で決められ、輪を generator
+  （`for steps in frames(...):` で受け取り、`break` で抜ける）で書けます。TypeScript はブラウザが
+  描く時刻を決め（`requestAnimationFrame`）、このリポジトリの型の設定（ES2022 だけ）には、時計
+  （`performance.now`）も待つ関数（`setTimeout`）もありません
+
+animal-bomber から持ってきたものと、変えた点は次のとおりです。
+
+- 本体は、animal-bomber の [loop.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/shell/loop.py)
+  （Python。`TickAccumulator`・`GameSpeed`・`frames`・`sleep_until`）と
+  [FrameLoop.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/platform/FrameLoop.ts)
+  （TypeScript。`TickAccumulator`・`GameSpeed`）です。1秒あたりの刻みの数（60）と1回の上限（15）は
+  定数でしたが、引数にしました
+- 1刻みの処理から経過時間を外したのは、原型（ブラウザで動く1つの HTML ファイルで書いた最初の版）の
+  失敗からです。原型は1回の処理に前のフレームからの経過時間を渡し、倍速のつまみをその経過時間に
+  掛けていたので、倍速にすると1回のキー入力が2〜3回に数えられました。animal-bomber は、1回呼ぶと
+  1刻み進む形にし、倍速は呼ぶ回数で、止めるのは呼ばないことで表しています
+  （[tick.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/core/tick.py) の説明、
+  [simulation.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/systems/simulation.py) の `step`）。
+  当たり判定を細かく挟む処理も、1刻みの移動の中だけに置いています
+  （[movement.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/systems/movement.py)）。
+  原型は、この細かい分け方を時間を進める処理そのものに書いていたので、入力の読み取りまで一緒に
+  分かれていました
+- TypeScript 版の `TickAccumulator` はミリ秒の小数で積んでいたので、Python 版と同じナノ秒の整数にそろえました。
+  Python 版のテスト（[test_loop.py](https://github.com/nakatama225/animal-bomber/blob/main/py/tests/shell/test_loop.py)）
+  には、ミリ秒の小数で積む形では、3時間分（648_000 回）の合計が1つ足りない 647_999 になったと
+  書いてあります
+- TypeScript 版の `GameSpeed.take` は引数を取らず、1刻み分の時間が経つたびに呼ぶ形でした。
+  Python 版と同じく、そのフレームで経った刻みの数を渡す形にしました
+- TypeScript の `blend` は、animal-bomber の TypeScript 版の `GameSpeed.progress` から変えたものです。
+  あちらは描く時刻をブラウザが決めるので、実時間の進み具合（次に刻みを進めるまでの割合）も
+  受け取り、倍率を掛けて端数に足し、上限を 1 にしています。このリポジトリは、Python 版の `blend`
+  （最後の `take` のときの端数の割合。`set` では変えない）に2つの言語をそろえました。ブラウザが
+  決めた時刻に描くとき、刻みの間を実時間で埋める値は、この部品にはありません。このリポジトリの
+  TypeScript の `progress` は、Python 版と同じく持ち越した端数だけを返します。animal-bomber の
+  TypeScript 版の `progress` とは、名前が同じで意味が違います
+- 倍率は、animal-bomber では 0.5 から 3 までを 0.25 ずつに限っていました（Python 版は 4 を分母に
+  した整数で、TypeScript 版は小数で端数を持ちます。0.25 の倍数は2進数の小数で正確に表せるので、
+  誤差が出ません）。このリポジトリは、0 より大きいどの分数の倍率も受けます。混ぜる割合を
+  `take` のときに決めて控える形は、Python 版の形です（loop.py の `GameSpeed` の説明）。割合を
+  その場の倍率から決めると、止めている間に整数と整数でない倍率の間で替えたとき、止まっている絵が
+  最大1刻み分動きます
+- 待ち方は、animal-bomber が測って選びました（Python 版の
+  [README.md](https://github.com/nakatama225/animal-bomber/blob/main/py/README.md) の「フレームの間の
+  待ち方を測り、眠ることにした」の表）。測る前に書いた決め方
+  （[bench_pacing_rule.py](https://github.com/nakatama225/animal-bomber/blob/main/py/tools/bench_pacing_rule.py)）には、
+  目を覚ますのが予定より遅れる幅の 99 パーセンタイル（p99。小さい順に並べて 99% の位置にある値）が
+  2 ms 以下、という条件などがあり、3回の測定で3回とも満たしたのは、眠らずに時計を読み続けて待つ形
+  （空回り）だけでした。2 ms はフレームの時間の配分から置いた数で、遊んでいて感じるかどうかから
+  決めた数ではなかったので、animal-bomber は測ったあとにこの上限を外し、眠る形にしました。
+  眠る形は、目を覚ますのが予定より遅れても（p99 で 5.48〜6.11 ms）、1刻み（16.7 ms）より短いので、
+  1刻み以外を進めたフレームは 0 でした。空回りは遅れが 0 ですが、待つ間もプロセッサのコアを1つ
+  使い続け（使用率 100%。眠る形は 32〜33%）、ほかの Python のスレッドは GIL（同時に1つのスレッド
+  しか Python のコードを動かさないための鍵）の受け渡しを待たされます。予定の 2 ms 前まで眠り、
+  残りを空回りする形も測りましたが、眠ると目を覚ますのが中央値で 3.7 ms ほど遅れるので、空回りを
+  始める前に予定を過ぎることが多く、遅れが残りました（p99 で 3.21〜3.48 ms）。そのため、
+  このリポジトリには眠る形の `sleep_until` だけを置き、空回りの `spin_until` は置いていません
+- 同じ測定で、pygame の `Clock.tick(60)` で待つ形は、2割を超えるフレーム（600 フレームのうち
+  134〜135）が0刻みか2刻み以上を進めました。輪が決めた締め切りを受け取らず、前に呼んだ時刻から
+  数えて待つためです。待つ関数の型（`Wait`）に、締め切りを受け取ることと、返ったとき時計が
+  締め切り以上であることを約束として書いているのは、このためです
+- 偽の時計（[fake_time.py](https://github.com/nakatama225/animal-bomber/blob/main/py/tests/shell/fake_time.py)）の
+  形も、animal-bomber から持ってきました
+- 1フレームに進める数を揺らしても結果が変わらないことを、animal-bomber は試合の記録を輪で再生して
+  確認しています（[test_pacing.py](https://github.com/nakatama225/animal-bomber/blob/main/py/tests/determinism/test_pacing.py)。
+  0・1・2・7・15 と揺らし、1刻みずつ再生した結果と比べる）。このリポジトリには、刻みごとに進める
+  具体的な処理がありません。テストの中に小さな処理を書いて比べても、その処理が経過時間を受け取らない
+  限り必ず同じになり、部品の約束の確認になりません。そこで、輪が返した数の合計が経過時間どおりに
+  なることと、その前提として1フレームの数が実際に揺れたことを確認しています（`test_fixed_step_frames.py`）
+
+秒を刻みの数に換える関数は、このリポジトリに使う所が無いので置いていません。animal-bomber は、
+指定した秒より早く終わらせないよう、秒を刻みの数に切り上げて換えています
+（[tick.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/core/tick.py) の
+`seconds_to_ticks`、[Tick.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/core/Tick.ts) の
+`secondsToTicks`）。秒を小数のまま掛けるので、4.15 × 60 は 249.00000000000003 になり、切り上げて
+250 刻みになります。animal-bomber は、2つの版で同じ値にするため、この値をそのままテストで固定しています
+（[test_tick.py](https://github.com/nakatama225/animal-bomber/blob/main/py/tests/core/test_tick.py)）。
+置くなら、時間をナノ秒の整数で受け、`ns_to_next_step` と同じく整数の割り算で切り上げます。
 
 ### 決定性を崩す書き方の検査
 

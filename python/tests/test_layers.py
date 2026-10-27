@@ -100,6 +100,7 @@ def test_libの下のどのファイルも_patternsとproblemsを読み込まな
     assert f"{TOP}/lib/__init__.py" in results
     assert f"{TOP}/lib/rng.py" in results
     assert f"{TOP}/lib/state_hash.py" in results
+    assert f"{TOP}/lib/fixed_step.py" in results
     assert {path: found for path, found in results.items() if found} == {}
 
 

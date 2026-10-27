@@ -1,7 +1,8 @@
 # TypeScript 実装
 
-**現在の状態（2026年10月）**：`src/patterns/` に設計の型が4つ、`src/lib/` に共通部品が3つ
-（二分探索と決定的な擬似乱数と状態の要約）あります。`src/problems/` はまだありません。
+**現在の状態（2026年10月）**：`src/patterns/` に設計の型が4つ、`src/lib/` に共通部品が4つ
+（二分探索と決定的な擬似乱数と状態の要約と固定刻みの時間）あります。固定刻みの時間の待つ部品
+（締め切りまで眠る関数とフレームの輪）は、Python 版だけに置いています。`src/problems/` はまだありません。
 
 ```text
 typescript/
@@ -21,6 +22,8 @@ typescript/
       state-hash.test.ts       src/lib/state-hash.ts の状態の要約（StateHasher）のテスト
                                この3つのファイルの固定値の表は Python のテストも読む。書き換えたら
                                Python のテストも走らせる
+      fixed-step.test.ts       src/lib/fixed-step.ts の経過時間を刻みの数に換える部品（StepAccumulator）のテスト
+      fixed-step-rate.test.ts  src/lib/fixed-step.ts の倍率の部品（RateScaler）のテスト
 ```
 
 置いてある型の一覧と、Python 版との違いは[リポジトリ全体の README](../README.md) にあります。

@@ -56,11 +56,12 @@ describe('層の向き：lib/ は patterns/ と problems/ を読み込まない'
   const RULE = 'no-restricted-imports';
 
   it('src/lib の下のファイルには、下のフォルダの中まで規則が当たる', async () => {
-    // 初めの3つは実在するファイル。範囲の書き方を誤って、どのファイルにも当たらなくなったときに失敗する。
+    // 初めの4つは実在するファイル。範囲の書き方を誤って、どのファイルにも当たらなくなったときに失敗する。
     for (const path of [
       'src/lib/bisect.ts',
       'src/lib/rng.ts',
       'src/lib/state-hash.ts',
+      'src/lib/fixed-step.ts',
       'src/lib/__probe__.ts',
       'src/lib/sub/__probe__.ts',
     ]) {
@@ -119,11 +120,12 @@ describe('決定性：lib/ では乱数・時刻・for...in を止める', () =>
   }
 
   it('src/lib の下のファイルには、下のフォルダの中まで規則が当たる', async () => {
-    // 初めの3つは実在するファイル。
+    // 初めの4つは実在するファイル。
     for (const path of [
       'src/lib/bisect.ts',
       'src/lib/rng.ts',
       'src/lib/state-hash.ts',
+      'src/lib/fixed-step.ts',
       'src/lib/__probe__.ts',
       'src/lib/sub/__probe__.ts',
     ]) {

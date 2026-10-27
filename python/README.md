@@ -3,7 +3,8 @@
 **現在の状態（2026年10月）**：`src/algorithms_and_patterns/patterns/` に設計の型が3つあります。
 4つ目の State は標準ライブラリ（`typing.assert_never` と `match`）で足りるので、部品を置かず、
 書き方の見本を `tests/patterns/test_state.py` に置いています。`lib/`（共通部品）には
-決定的な擬似乱数（`rng.py`）と、状態の要約（`state_hash.py`）があります。TypeScript 版が `lib/` に置いた二分探索は、
+決定的な擬似乱数（`rng.py`）と、状態の要約（`state_hash.py`）と、固定刻みの時間（`fixed_step.py`）があります。
+固定刻みの時間の待つ部品（締め切りまで眠る関数とフレームの輪）は、Python だけに置いています。TypeScript 版が `lib/` に置いた二分探索は、
 標準ライブラリの `bisect` で足りるので置いていません。`problems/` はまだありません。
 
 ```text
@@ -24,6 +25,10 @@ python/
                                python/ の外のファイルを読む、ただ1つのテスト。src には対応しない
       test_determinism_guard.py  lib/ が乱数・時刻・起動ごとに変わる値（hash・id）を使っていないことの
                                  検査。禁じる名前の一覧はここが正。src には対応しない
+      test_fixed_step.py         fixed_step.py の経過時間を刻みの数に換える部品（StepAccumulator）のテスト
+      test_fixed_step_rate.py    fixed_step.py の倍率の部品（RateScaler）のテスト
+      test_fixed_step_frames.py  fixed_step.py の締め切りまで眠る関数とフレームの輪のテスト
+      fake_time.py               上のテストが使う偽の時計と偽の待ち方。テストの補助で、src には対応しない
 ```
 
 標準ライブラリだけで書いているので、実行に要る依存はありません。

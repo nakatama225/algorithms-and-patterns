@@ -106,6 +106,7 @@ def test_libの下のどのファイルにも_禁じた書き方が無い() -> N
     results = scan(SRC)
     assert f"{TOP}/lib/rng.py" in results
     assert f"{TOP}/lib/state_hash.py" in results
+    assert f"{TOP}/lib/fixed_step.py" in results
     assert {path: found for path, found in results.items() if found} == {}
 
 
