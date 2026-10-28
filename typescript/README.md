@@ -1,7 +1,7 @@
 # TypeScript 実装
 
-**現在の状態（2026年10月）**：`src/patterns/` に設計の型が4つ、`src/lib/` に共通部品が4つ
-（二分探索と決定的な擬似乱数と状態の要約と固定刻みの時間）あります。固定刻みの時間の待つ部品
+**現在の状態（2026年10月）**：`src/patterns/` に設計の型が4つ、`src/lib/` に共通部品が6つ
+（二分探索と決定的な擬似乱数と状態の要約と固定刻みの時間と、`grid.ts` の格子と幅優先の最短経路）あります。固定刻みの時間の待つ部品
 （締め切りまで眠る関数とフレームの輪）は、Python 版だけに置いています。`src/problems/` はまだありません。
 
 ```text
@@ -24,6 +24,9 @@ typescript/
                                Python のテストも走らせる
       fixed-step.test.ts       src/lib/fixed-step.ts の経過時間を刻みの数に換える部品（StepAccumulator）のテスト
       fixed-step-rate.test.ts  src/lib/fixed-step.ts の倍率の部品（RateScaler）のテスト
+      grid.test.ts             src/lib/grid.ts の格子の入れ物（Grid）のテスト
+      grid-path.test.ts        src/lib/grid.ts の幅優先の最短経路（findPath）の探し方のテスト
+      grid-path-invalid.test.ts  src/lib/grid.ts の幅優先の最短経路（findPath）が止める値のテスト
 ```
 
 置いてある型の一覧と、Python 版との違いは[リポジトリ全体の README](../README.md) にあります。

@@ -8,7 +8,8 @@
 部品とテストがあります。Python は3つに部品とテストがあり、残る State は標準ライブラリで
 足りるので、書き方の見本をテストに置いています。共通部品（`lib/`）は置き始めたところで、
 いまは二分探索（TypeScript だけ。Python は標準ライブラリの `bisect` で足ります）と、
-決定的な擬似乱数と、状態の要約と、固定刻みの時間（待つ部品は Python だけ）の4つです。
+決定的な擬似乱数と、状態の要約と、固定刻みの時間（待つ部品は Python だけ）と、格子と、
+幅優先の最短経路の6つです。
 具体的な解答（`problems/`）はまだありません。次に足すのは、実際の作品（animal-bomber など）で
 使った共通部品と、設計の型に足す部品です。
 
@@ -122,7 +123,11 @@ TypeScript 版が出した値を、Python 版のテストに1度貼っただけ�
 Python は `test_rng.py` と `test_rng_derive_seed.py`）。固定刻みの時間（`fixed_step`）も、同じ理由で、
 経過時間を刻みの数に換える部品と倍率の部品のテストを分けています（`fixed-step.test.ts` と
 `fixed-step-rate.test.ts`、Python は `test_fixed_step.py` と `test_fixed_step_rate.py`）。Python は、
-待つ部品のテストも `test_fixed_step_frames.py` に分けています。
+待つ部品のテストも `test_fixed_step_frames.py` に分けています。格子（`grid`）も、格子の入れ物と
+幅優先の最短経路のテストを分けています（`grid.test.ts` と `grid-path.test.ts`、Python は
+`test_grid.py` と `test_grid_path.py`）。探索は格子の入れ物を受けずに動き、変わる理由が違うためです。
+探索のテストは、さらに、止める値（格子の外の出発点や負の歩数など）を `grid-path-invalid.test.ts`
+（Python は `test_grid_path_invalid.py`）に分けています。受け取る値の約束は、探し方とは別の理由で変わります。
 テストは、部品が正しく動くことの確認であると同時に、
 **その部品が何を保証しているのかの記述**でもあります。エッジケース
 （空、1件、重複、境界値、異常値）を通しておくと、読む人は仕様を読み取れます。
@@ -135,6 +140,8 @@ Python は `test_rng.py` と `test_rng_derive_seed.py`）。固定刻みの時�
 | 決定的な擬似乱数 | 種を1つ与えれば、言語と版をまたいで同じ並びが出る。生成した回数を外から読め、元を進めずに先を試算する写しを作れる。種と番号から、用途ごとに分けた乱数の種を導ける | [rng.ts](typescript/src/lib/rng.ts) | [rng.py](python/src/algorithms_and_patterns/lib/rng.py) |
 | 状態の要約 | 状態を、比べられる 32 ビットの数1つにまとめる。何をどの順で混ぜるかは呼ぶ側が決め、同じ値を同じ順で混ぜれば、起動・環境・言語をまたいで同じ要約になる | [state-hash.ts](typescript/src/lib/state-hash.ts) | [state_hash.py](python/src/algorithms_and_patterns/lib/state_hash.py) |
 | 固定刻みの時間 | 揺れる実時間を、長さの決まった刻みを何回進めるかに換える。端数は持ち越し、遅れすぎた分は捨てる。倍率は、刻みの長さを変えずに、進める回数で表す | [fixed-step.ts](typescript/src/lib/fixed-step.ts)（待つ部品は無し） | [fixed_step.py](python/src/algorithms_and_patterns/lib/fixed_step.py) |
+| 格子 | マス目を、左上から行ごとに並べた1本の配列で持つ。外を読むと、作るときに決めた値を返すので、通れないものを表す値にすれば、使う側は範囲を確認せずに読める。外へ書くと止める | [grid.ts](typescript/src/lib/grid.ts) の `Grid` | [grid.py](python/src/algorithms_and_patterns/lib/grid.py) の `Grid` |
+| 幅優先の最短経路 | 重みの無い格子で、条件を満たす最初のマスまでの最短経路を求める。格子の入れ物を受けず、列と行の数と、通れるかを答える関数だけで動くので、探索だけでも使える。同じ長さの経路のどれを返すかは、隣を試す順で決まる | [grid.ts](typescript/src/lib/grid.ts) の `findPath` | [grid.py](python/src/algorithms_and_patterns/lib/grid.py) の `find_path` |
 
 `lib/` の部品は、同じ入力から、起動のたびに同じ結果を出します。固定値の表を持つ部品（乱数と
 状態の要約）は、さらに環境と言語をまたいでも1ビットも違わない値を出します。前の約束を崩す書き方を
@@ -443,6 +450,115 @@ animal-bomber から持ってきたものと、変えた点は次のとおりで
 250 刻みになります。animal-bomber は、2つの版で同じ値にするため、この値をそのままテストで固定しています
 （[test_tick.py](https://github.com/nakatama225/animal-bomber/blob/main/py/tests/core/test_tick.py)）。
 置くなら、時間をナノ秒の整数で受け、`ns_to_next_step` と同じく整数の割り算で切り上げます。
+
+### 格子と幅優先の最短経路
+
+マス目の上で、条件を満たす最初のマスまでの最短経路を求める部品と、マス目を持つ入れ物です。
+2つは別の部品で、探索（`findPath`・`find_path`）は格子の入れ物（`Grid`）を受けません。列と行の
+数と、そのマスへ進めるかを答える関数（`passable`）だけで動くので、盤面を別の形で持っている
+呼ぶ側も、探索だけを使えます。
+
+- 格子の入れ物：左上から行ごとに並べた1本の配列で持ち、添字の計算（行 × 列の数 + 列）を
+  クラスの中に閉じ込めます。外を読むと、作るときに決めた値（`outside`）を返します。通れない
+  ものを表す値を外の値にすれば、当たり判定や、まっすぐ伸びる範囲を求める処理に、範囲を確認する
+  分岐を書かずに済みます。外へ書くと止めます。外は読むと決めた値を返すだけの場所で、書こうと
+  するのは呼ぶ側の誤りだからです。値は作るときに写して持つので、渡した配列をあとで書き換えても
+  格子は変わりません
+- 幅優先：どのマスへ進む手間も同じなので、幅優先で最初に見つかった経路が最短です。重みを扱う
+  探し方（ダイクストラ法や A*）は、複雑さに見合いません
+- 出発点：目的地として見ず、通れるかも尋ねません。返すのは出発点の次のマスから目的地までの
+  並びで、長さが歩数です。出発点が目的地かは、呼ぶ側が先に見ます。いま立っているマスが通れない
+  マスになっていても、そこから出る道を探せます
+- 目的地（`goal`）：マスと、出発点からの歩数を受け取ります。届いたマスに、出発点に近い順に
+  1回ずつ呼ぶので、「3マス以上離れた所」のような条件も書けます。目的地も、通れるマスの中から
+  探します
+- 探す歩数（`maxDistance`・`max_distance`）：ちょうどこの歩数のマスまでを見ます。0 なら、隣が
+  目的地でも見つかりません。負の数は止めます
+- 同じ長さの経路の選び方：隣を試す順（`order`）で先に届いた経路を返します。既定は右・左・下・上
+  （`FOUR_NEIGHBOURS`）です。この順は隣の決め方も兼ね、ここに無い向きへは進みません
+
+この部品は固定値の表を持たず、約束は下の「決定性を崩す書き方の検査」の1つ目（同じ入力から、
+起動のたびに同じ結果を出す）だけです。計算は整数の足し算・掛け算と、余りと切り捨ての割り算
+だけです。訪れた印と、各マスへどのマスから来たか（来た所）は、マスの添字で読み書きする
+配列で持ち、マスを `set` や `dict` に入れて順に取り出すことはしません。Python で `set` を
+順に取り出すと、中身によっては、その順が起動のたびに変わります（同じ節の「`set` を順に取り出すこと」）。
+
+言語で形が変わったところは5つです。
+
+- 待ち行列：TypeScript は配列と先頭の添字で持ちます。ES2022 には先頭から取り出すための型が無く、
+  配列の `shift` は残りの要素を前へ詰めるので、要素が多いと遅くなります。同じ Mac の Node.js 26 で、
+  10 万個を積んで `shift` で全部取り出すと約 10 秒、先頭の添字を進めて読むと 1 ミリ秒未満でした
+  （1 万個なら、`shift` でも 1 ミリ秒未満でした）。Python は標準の `collections.deque` で、先頭から
+  取り出す時間は要素の数によりません
+- 訪れた印と来た所の配列：TypeScript は、訪れた印を `Uint8Array` に、来た所を数の配列に持ちます。
+  来た所を `Int32Array` にすると、2**31 以上の添字が負の数に化けるためです（数の配列は 2**32 - 1 より
+  長く作れず、作る所で止まります）。Python はどちらも `list` です
+- マスを `set` や `Set` に入れるとき：Python の frozen dataclass は中身で比べる `__eq__` と `__hash__` を
+  持つので、`Cell` をそのまま `set` に入れて、中にあるかを見られます。TypeScript の `Set` と `Map` は
+  オブジェクトを同じものかで比べるので、中身が同じ別のオブジェクトを見分けません。まだ置いていない
+  障害を `passable` に足すときなどは、添字（行 × 列の数 + 列）か文字列を鍵にします
+  （[grid-path.test.ts](typescript/tests/lib/grid-path.test.ts) の「まだ置いていない障害」のテストがこの形です）
+- 書き換えるメソッドの名前と止め方：どちらも `put` です。Python のクラスで `set` という名前の
+  メソッドを定義すると、同じクラスの中でそのメソッドより後に書いた型注釈の `set[...]` が、組み込みの
+  `set` でなくそのメソッドを指します。型検査（mypy）が止め、3.13 までは、クラスを作る所で TypeError に
+  なります。3.14 からは注釈をあとで評価するので、クラスは作れますが、注釈を読み出す所で同じ TypeError に
+  なります（このときは、メソッドより前に書いた注釈も同じです）。TypeScript もそろえて `put` に
+  しました。外へ書いたときは、Python は `ValueError`、TypeScript は `RangeError` で止めます。
+  Python は animal-bomber の `board.py` の `put` と同じです。`IndexError` は `list` などの並びの添字が
+  範囲の外のときの例外で、ここで受け取るのは添字でなくマスの位置なので、使いませんでした。
+  TypeScript は、`lib/` のほかの部品と同じく、範囲の外の引数を `RangeError` で止めます
+- 整数の引数の確認：TypeScript は、列と行の数・マスの位置・探す歩数・隣への差分が安全な整数かを、
+  実行時に確認します。小数のマスは範囲の確認を通り（0 ≤ 0.5 < 3）、添字が小数になって、配列は
+  `undefined` を返し、書き込みは配列の要素になりません。Python は `int` の型で受けるので、型検査に
+  任せます。また、TypeScript の既定の順（`FOUR_NEIGHBOURS`）は `Object.freeze` で凍らせています。
+  どの呼び出しにも同じ配列を既定として渡すので、1か所で書き換えると、ほかの呼び出しの経路まで
+  変わるためです（`readonly` は型検査だけの約束です）。Python の既定の順はタプルで、書き換えられません
+
+animal-bomber から持ってきたものと、変えた点は次のとおりです。
+
+- 探索の本体は、animal-bomber の [path.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/query/path.py)
+  （Python。`find_path`）と [PathFinder.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/query/PathFinder.ts)
+  （TypeScript。`findPath`）です。訪れた印と来た所を添字で読み書きする配列で持つこと、右・左・下・上の順で
+  隣を試すこと、出発点を目的地として見ないこと、出発点の次から目的地までを返すことは、そのままです。
+  animal-bomber の探索は試合の状態とプレイヤーを受け、通れるかの判定（ブロック・爆弾・燃えかけて
+  いるマス・踏むと損をするアイテム・これから置く爆弾）を中に持っています。このリポジトリは、通れるかを
+  関数で受け、判定を呼ぶ側に任せました。また、出発点が格子の外のときと、探す歩数が負のときは
+  止めます。animal-bomber の探索は、どちらも確認していません。テストの形は
+  [test_path.py](https://github.com/nakatama225/animal-bomber/blob/main/py/tests/query/test_path.py) と
+  [path-finder.test.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/tests/ai/path-finder.test.ts) です
+- 格子の入れ物は、[board.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/state/board.py) の
+  `Board` と [Board.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/state/Board.ts) の `Board` です。
+  外を壊せない壁として返すので、当たり判定や爆風の伸び方に、範囲を確認する分岐がありません。
+  このリポジトリでは、外の値を作るときに受けます。TypeScript 版の `Board` は、外を指した `set` を
+  何もせずに終え、作るときに値の配列を写さず、大きさが合わないと `Error` を投げていました。
+  このリポジトリでは、Python 版にそろえて、外へ書くと止め、値を写して持ちます。また、列か行が 1 未満の
+  格子は作れないようにしました。animal-bomber の `Board` は値の数だけを比べていますが、負の数どうしの
+  積は正になるので、それだけでは (-2, -2) と値 4 つの組が通ってしまうためです
+- 共通部品に引き上げたのは、animal-bomber で同じ探索を2回書いていたためです。2回目は、相手を
+  追いかける炎（狐火）の道探し（[fox.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/abilities/fox.py) の
+  `_next_step`、[FoxfireActor.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/abilities/fox/FoxfireActor.ts) の
+  `#nextStep`）で、見たマスを、Python は `Cell` を鍵にした `dict` で、TypeScript は文字列の `Set` で
+  覚えていました。狐火の道探しは、
+  相手がいまのマスにいれば、いまのマスを返します。それ以外は、いちばん近い相手への最短の道の最初の
+  1マスだけを返し、深さの上限は 22 マス（`SEARCH_DEPTH`）です。隣を試す順（`SEARCH_ORDER`）は
+  `FOUR_NEIGHBOURS` と同じ並びです。この部品で書くなら、先に相手がいまのマスにいるかを見て、いなければ
+  `passable` を空きマス、`goal` を相手のいるマス、探す歩数を 22 にして呼び、返った経路の先頭を次の
+  1マスにします。狐火の道探しを写したものと、乱数で作った格子 2 万通りで突き合わせ、全部で同じ答えに
+  なることを確認しました。2つ目の使い道にも、この形で足ります。animal-bomber の側は、手で書いたままです
+- 順で答えが変わる探し方（同じ長さの経路のどれを返すか、など）を原型（ブラウザで動く1つの HTML
+  ファイルで書いた最初の版）とそろえるため、animal-bomber は向きの一覧（上・右・下・左）とは別に、
+  走査の順（右・左・下・上）を置いています（[coord.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/core/coord.py) と
+  [Coord.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/core/Coord.ts) の `SCAN_ORDER`）。
+  向きの一覧そのものを並べ替えると、乱数で向きを選ぶ所など、原型と順が対応していない所の答えまで
+  変わるためです。このリポジトリには向きの一覧が無く、`FOUR_NEIGHBOURS` が走査の順そのものです
+
+使ってみて分かったことも2つあります。近さは、縦と横の差の和（マンハッタン距離）でなく、歩ける
+経路の長さで見ます。原型は差の和で見ていたので、壁の向こうの相手を近いと判断し、届かない飛び道具を
+撃ち続けました（[context.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/ai/context.py) の
+`foe_path_distance`。返った経路の長さを使います）。また、経路に沿って少しずつ動かすときは、
+マスに着いたとみなす範囲を、1回に動く距離の最大の半分より広くします。狭いと、マスの中央を挟んで
+行き過ぎと戻りを毎回繰り返し、止まりません（[follow.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/ai/follow.py) と
+[PathFollower.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/ai/PathFollower.ts) の `ARRIVED`）。
 
 ### 決定性を崩す書き方の検査
 
