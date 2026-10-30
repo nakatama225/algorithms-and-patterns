@@ -10,6 +10,8 @@
   包まれた側は、記録されていることを知らない
 - 再生する … 出どころを ``ReplaySource`` に差し替える。
   処理の側は1行も変わらない
+- 遅れて届く命令を使う … 届いた順に ``ArrivalLog`` で受け取り、それを
+  ``ReplaySource`` に渡す。まだ届いていない歩を読むと止まる
 
 ⚠️ 再生して同じ結果になるのは、次の2つが守られているときだけ。
 
@@ -46,6 +48,17 @@ class CommandSource(Protocol[S_contra, C_co]):
                 例外になって止まる。
             view: いまの状態。読むだけで、書き換えない。
         """
+        ...
+
+
+class CommandLookup(Protocol[C_co]):
+    """歩の番号から命令を返すもの。``ReplaySource`` が受け取る。
+
+    ``CommandLog`` と ``ArrivalLog`` は、継承せずにそのまま当てはまる。
+    """
+
+    def at(self, step: int) -> C_co:
+        """``step`` 歩目の命令を返す。"""
         ...
 
 
@@ -136,6 +149,82 @@ class CommandLog(Generic[C]):
         return self._commands[-1] if self._commands else self._idle
 
 
+class ArrivalLog(Generic[C]):
+    """順に届く命令の記録。どの歩まで届いたかを持ち、届いていない歩を読ませない。
+
+    ``CommandLog.at`` だけでは足りない。``at`` は記録より先の歩に最後の命令を
+    返すので、まだ届いていない歩を読んでも、それらしい命令が返る。記録を再生する
+    だけならそれでよいが、遅れて届く命令に使うと、届く前に読んだ側だけが別の命令で
+    進み、黙ってずれる。この記録は、届いていない歩を読むと止まる。
+
+    命令は歩の順に1つずつ届く約束にし、飛んだら止める。飛んだ歩を受け付けると、
+    抜けた歩には直前の命令が続いて見え、本当の命令が後から届いても受け取れない。
+
+    届いた範囲は、中の ``CommandLog`` が最後に受け付けた歩（``last_step``）を
+    そのまま使い、別に数えない。``CommandLog`` は命令が変わらない歩でも
+    ``last_step`` を進めるので、同じ命令が続く間も範囲は進む。
+    出どころが複数あり、それぞれ別々に届くなら、出どころごとに1つ作る。
+
+    中の ``CommandLog`` は外に出さない。外から ``record`` を呼べると、順の検査を
+    通らずに歩を飛ばせる。保存するなら ``entries()`` と ``arrived_through`` を残す。
+    """
+
+    def __init__(self, idle: C) -> None:
+        """空の記録を作る。
+
+        Args:
+            idle: 最初に命令が変わるより前の歩に返す、何もしない命令。
+        """
+        self._log: CommandLog[C] = CommandLog(idle)
+
+    @property
+    def arrived_through(self) -> int:
+        """届いた最後の歩。まだ1つも届いていなければ -1。"""
+        return self._log.last_step
+
+    def put(self, step: int, command: C) -> None:
+        """``step`` 歩目に届いた命令を受け取る。直前と同じ命令でも、範囲は進む。
+
+        Raises:
+            ValueError: ``step`` が届いた最後の歩の次でないとき（飛んだ・戻った・
+                同じ歩の2度目・負の歩）。断ったときは、届いた範囲も記録も変えない。
+        """
+        expected = self._log.last_step + 1
+        if step != expected:
+            raise ValueError(
+                f"届く順が乱れた: {expected} 歩目を待っていたのに {step} 歩目"
+            )
+        self._log.record(step, command)
+
+    def has(self, step: int) -> bool:
+        """``step`` 歩目の命令が届いているか。
+
+        Raises:
+            ValueError: ``step`` が負のとき。負の歩は数え間違いの結果で、
+                届いた・届いていないのどちらで答えても、誤りが黙って先へ進む。
+        """
+        _check_step(step)
+        return step <= self._log.last_step
+
+    def at(self, step: int) -> C:
+        """``step`` 歩目の命令を返す。
+
+        Raises:
+            ValueError: ``step`` が負のとき。
+            LookupError: まだ届いていないとき。読む側が、届くのを待たずに進めた。
+        """
+        if not self.has(step):
+            raise LookupError(
+                f"{step} 歩目の命令はまだ届いていない"
+                f"（届いた最後の歩: {self.arrived_through}）"
+            )
+        return self._log.at(step)
+
+    def entries(self) -> tuple[CommandChange[C], ...]:
+        """届いた命令のうち、変わった歩と命令の一覧（``CommandLog.entries``）。"""
+        return self._log.entries()
+
+
 @dataclass(frozen=True)
 class ReplaySource(Generic[C]):
     """記録した命令を流す出どころ。
@@ -143,9 +232,12 @@ class ReplaySource(Generic[C]):
     状態を見ずに、歩の番号だけで命令を決める。だから、記録したときと同じ状態から
     始めれば、同じ命令が同じ順に流れる。状態の型を ``object`` で受けるので、
     どの状態を扱う処理にも差し込める。
+
+    記録は ``CommandLog`` でも ``ArrivalLog`` でもよい。``ArrivalLog`` を渡すと、
+    まだ届いていない歩で止まる。
     """
 
-    log: CommandLog[C]
+    log: CommandLookup[C]
 
     def command_at(self, step: int, view: object) -> C:
         return self.log.at(step)

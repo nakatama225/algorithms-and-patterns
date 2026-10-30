@@ -133,6 +133,10 @@ Python は `test_rng.py` と `test_rng_derive_seed.py`）。固定刻みの時�
 （`cascade.test.ts`・`cascade-earliest-times.test.ts`・`cascade-invalid.test.ts`、Python は `test_cascade.py`・
 `test_cascade_earliest_times.py`・`test_cascade_invalid.py`）。最も早い時刻は一括処理と同じたどり方を使いますが、
 時刻の扱い（無限大や同じ時刻の順）は、たどり方とは別の理由で変わります。
+設計の型では Command が、記録と再生のテストと、届いた範囲を持つ記録（`ArrivalLog`）のテストを
+分けています（`command.test.ts` と `command-arrival.test.ts`、Python は `test_command.py` と
+`test_command_arrival.py`）。順に1つずつ受け取ることと、届いていない歩を読ませないことの約束は、
+記録の縮め方や再生の仕方とは別の理由で変わります。
 テストは、部品が正しく動くことの確認であると同時に、
 **その部品が何を保証しているのかの記述**でもあります。エッジケース
 （空、1件、重複、境界値、異常値）を通しておくと、読む人は仕様を読み取れます。
@@ -773,10 +777,44 @@ ESLint の2つの規則（[eslint.config.js](https://github.com/nakatama225/anim
 
 | 型 | 何を解くか | TypeScript | Python |
 |---|---|---|---|
-| Command（命令を値として渡す） | 1歩ずつ進む処理と、「その歩で何をするか」を決める側を切り離す。記録と再生が、部品を1つ挟むだけで作れる | [command.ts](typescript/src/patterns/command.ts) | [command.py](python/src/algorithms_and_patterns/patterns/command.py) |
+| Command（命令を値として渡す） | 1歩ずつ進む処理と、「その歩で何をするか」を決める側を切り離す。記録と再生が、部品を1つ挟むだけで作れる。遅れて届く命令は、届いた範囲を持つ記録（`ArrivalLog`）で受け取ると、まだ届いていない歩を読んだときに止まる | [command.ts](typescript/src/patterns/command.ts) | [command.py](python/src/algorithms_and_patterns/patterns/command.py) |
 | Strategy（答え方を差し替える）と登録表 | 同じ問いへの答え方を名前で引けるように並べる。答え方を足すときに、使う側と既存の答え方を触らない | [strategy.ts](typescript/src/patterns/strategy.ts) | [strategy.py](python/src/algorithms_and_patterns/patterns/strategy.py) |
 | Chain of Responsibility（規則を優先順に試す） | 1つの長い if の連なりを、独立した規則の並びにする。規則を足す・外す・入れ替えるのが、並びの1行の操作になる | [chain-of-responsibility.ts](typescript/src/patterns/chain-of-responsibility.ts) | [chain_of_responsibility.py](python/src/algorithms_and_patterns/patterns/chain_of_responsibility.py) |
 | State（状態を閉じた union で表す） | 取りうる状態を型で閉じ、状態ごとに持つ値を分ける。状態を足したときの扱い忘れを、型検査が見つける | [state.ts](typescript/src/patterns/state.ts) | 部品は無し（標準ライブラリで足りる）。書き方の見本は [test_state.py](python/tests/patterns/test_state.py) |
+
+### Command の届いた範囲を持つ記録
+
+`CommandLog` は、記録より先の歩を読むと、最後の命令を返します。記録を再生するだけなら、
+それで足ります。ところが、命令が通信などで遅れて届くときに同じ記録を使うと、まだ届いていない
+歩を読んでも、それらしい命令が返ります。届く前に読んだ側だけが別の命令で進み、例外も出ずに
+結果がずれます。`ArrivalLog` は、どの歩まで届いたかを持ち、まだ届いていない歩を読むと止まります。
+読む側は、`has` で届いたかを見てから読みます。`ReplaySource` には、`CommandLog` と同じように
+そのまま渡せます。
+
+命令は、歩の順に1つずつ受け取ります。飛んだ歩・戻った歩・同じ歩の2度目は断り、断ったときは
+届いた範囲も記録も変えません。飛んだ歩を受け付けると、抜けた歩には直前の命令が続いて見え、
+本当の命令が後から届いても、もう受け取れません。負の歩（TypeScript は小数の歩も）は、届いたかを
+問う `has` でも止めます。数え間違いの結果なので、届いた・届いていないのどちらでも答えません。
+animal-bomber の `has` は、負の時刻に「届いている」と答えます。
+
+届いた範囲（`arrived_through`・`arrivedThrough`）は、中に持つ `CommandLog` が最後に受け付けた歩
+（`last_step`・`lastStep`）をそのまま使い、別に数えません。`CommandLog` は、命令が変わらず
+記録を増やさなかった歩でも、最後に受け付けた歩を進めるので、同じ命令が続く間も範囲が進みます。
+最後に受け付けた歩を変わった歩だけで数えると、範囲が進まないうえに、同じ命令が続いたあとに
+戻った歩も見逃します。animal-bomber では、Python 版の記録（input_log.py の `InputLog`）が、
+何も足さなかったときも最後に頼まれた時刻を進める形にして、この見逃しを塞ぎました。
+このリポジトリの `CommandLog` は、最初からこの形です。
+
+中に持つ `CommandLog` は外に出しません。外から `record` を呼べると、順に受け取る約束を通らずに
+歩を飛ばせるためです。届いた命令を保存するときは、`entries()` と届いた範囲を一緒に残します。
+一覧だけでは、最後に変わった歩より先のどこまで届いていたかが分かりません。`CommandLog` の
+`entries()` と最後に受け付けた歩を一緒に残すのと同じです。
+
+animal-bomber の `ConfirmedInputs` は、通信で届いた命令を1つの記録（`InputLog`）にまとめて持ち、
+届いた範囲は記録とは別に、プレイヤーごとに持っています。このリポジトリの `ArrivalLog` は1本の
+命令の列を受け取るので、範囲も1つです。出どころが複数あり、それぞれ別々に届くなら、`ArrivalLog` を
+出どころごとに1つ作ります。手元で出した命令も、遠くから届く命令と同じだけ遅らせて
+`ArrivalLog` を通します。手元の命令だけを先に使うと、手元でだけ先に進んでずれます。
 
 ### 言語で形が変わったところ
 
@@ -795,7 +833,7 @@ ESLint の2つの規則（[eslint.config.js](https://github.com/nakatama225/anim
   （[eslint.config.js](https://github.com/nakatama225/animal-bomber/blob/main/ts/eslint.config.js)）から
   持ってきました。animal-bomber は、引数を狭めた実装が型エラーになることを1つのファイル
   （[variance.test.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/tests/boundary/variance.test.ts)）に
-  まとめていますが、このリポジトリでは型ごとのテスト（`command.test.ts` と
+  まとめていますが、このリポジトリでは型ごとのテスト（`command.test.ts`・`command-arrival.test.ts`・
   `chain-of-responsibility.test.ts`）に置いています。また animal-bomber は、規則が働いていることを、
   違反を書いたファイルで検査のコマンドを動かして確認しています。このリポジトリは、
   規則を外す注釈を付けた違反を1つテストのファイルに置き、
@@ -813,6 +851,16 @@ ESLint の2つの規則（[eslint.config.js](https://github.com/nakatama225/anim
 - 歩の番号の確かめ方：TypeScript の `number` は整数と小数を区別しないので、
   整数かどうかを実行時に確かめます。Python は `int` があるので、型検査に任せます
 - 記録の探索：Python は標準の `bisect`、TypeScript は `lib/` の二分探索（`bisectRight`）を使います
+- 記録を読む口（`CommandLookup`）：`ReplaySource` は、歩の番号から命令を返す `at` を持つものを
+  受け取ります。Python は `Protocol`、TypeScript は関数を持つ項目の interface で書いています。
+  どちらも、`CommandLog` と `ArrivalLog` のクラスのメソッドが、継承せず、`implements` も書かずに
+  そのまま当てはまります。`at` は状態を受け取りませんが、歩の番号の引数にも、上の出どころと同じ
+  向きの問題があります。TypeScript でメソッドの形で書くと、歩の型を狭めた `at`
+  （例：`(step: 0 | 1) => C`）を渡しても型エラーになりません。関数を持つ項目の形なら、型検査が
+  止めます（両方の言語に、渡せないことを示すテストがあります）
+- 届いていない歩を読んだときの例外：Python は `LookupError`（`IndexError` と `KeyError` の親）で、
+  負の歩の `ValueError` と型で分かれます。JavaScript の組み込みの例外には、探す物が無いことを表す
+  型が無いので、TypeScript 版はどちらも `RangeError` にして、文面で分けています
 
 #### Strategy
 
@@ -888,7 +936,7 @@ TypeScript 版は Strategy で、動物を足すときに、既存の動物に�
 
 | 型 | TypeScript | Python |
 |---|---|---|
-| Command | [animal-bomber](https://github.com/nakatama225/animal-bomber) の操作の出どころ（[InputSource.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/input/InputSource.ts)）と、操作の記録・再生（[InputLog.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/net/InputLog.ts)）。同じプレイヤーの出どころをいくつか、ボタンごとの OR で1つに合わせる所（[CombinedInputSource.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/platform/CombinedInputSource.ts)）。通信で届いた命令を、出どころとして試合に渡す所（[ConfirmedInputs.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/net/ConfirmedInputs.ts) の `ConfirmedInputs` と `NetworkInputSource`。どこまで届いたかを、記録とは別に持つ） | animal-bomber の操作の出どころ（[sources.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/input/sources.py)。何も押さない `IdleSource`、いくつかを合わせる `EitherSource`、全員の出どころから1歩ぶんを集める `InputGatherer` を含む）と、操作の記録・再生（[input_log.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/net/input_log.py)。途中で抜けたプレイヤーを代わりの出どころに任せる `Replacement` を含む）。どこまで届いたかを持つ記録と、通信の出どころ（[confirmed.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/net/confirmed.py)） |
+| Command | [animal-bomber](https://github.com/nakatama225/animal-bomber) の操作の出どころ（[InputSource.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/input/InputSource.ts)）と、操作の記録・再生（[InputLog.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/net/InputLog.ts)）。同じプレイヤーの出どころをいくつか、ボタンごとの OR で1つに合わせる所（[CombinedInputSource.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/platform/CombinedInputSource.ts)）。通信で届いた命令を、出どころとして試合に渡す所（[ConfirmedInputs.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/net/ConfirmedInputs.ts) の `ConfirmedInputs` と `NetworkInputSource`。どこまで届いたかを、記録とは別に持つ。`ConfirmedInputs` は、このリポジトリの `ArrivalLog` の元。`ArrivalLog` は範囲を別に持たず、中の記録が最後に受け付けた歩を使う） | animal-bomber の操作の出どころ（[sources.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/input/sources.py)。何も押さない `IdleSource`、いくつかを合わせる `EitherSource`、全員の出どころから1歩ぶんを集める `InputGatherer` を含む）と、操作の記録・再生（[input_log.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/net/input_log.py)。途中で抜けたプレイヤーを代わりの出どころに任せる `Replacement` を含む）。どこまで届いたかを持つ記録と、通信の出どころ（[confirmed.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/net/confirmed.py)。`ConfirmedInputs` が、このリポジトリの `ArrivalLog` の元） |
 | Strategy | animal-bomber の動物ごとの能力。答え方の型と登録表（[Ability.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/abilities/Ability.ts)）、登録を集める1か所（[registry.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/abilities/registry.ts)）。CPU の戦い方の登録表（[AnimalTactic.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/ai/tactics/AnimalTactic.ts)。登録を集める1か所は [registry.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/ai/tactics/registry.ts)）。戦い方は、登録が無ければ既定の戦い方を返す。このリポジトリの `Registry.get` は既定に丸めずに止まるが、ここは「戦い方を書かなくても戦える」ことを意図した使い方で、動物の名前の誤りは能力の登録表が止める | 登録表は意図して使っていない。同じ問い（動物ごとの能力）に、閉じた種類で答えた。動物の閉じた列挙を `match` で振り分けて、技の関数（[techniques.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/abilities/techniques.py)）と CPU の戦い方（[tactics.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/ai/tactics.py) の `Tactic` と `tactic_of`）を返す。理由は [06-動物の技と閉じた種類.md](https://github.com/nakatama225/animal-bomber/blob/main/py/docs/06-動物の技と閉じた種類.md)。登録表を使わない Strategy の例は、待ち方の関数を引数で渡す所（[loop.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/shell/loop.py) の `frames`）と、通信の手段を引数で渡す所（[data-science-portfolio](https://github.com/nakatama225/data-science-portfolio) の [api.py](https://github.com/nakatama225/data-science-portfolio/blob/main/ibm-capstone-spacex/src/spacex_capstone/collection/api.py) の `JsonFetcher`） |
 | Chain of Responsibility | animal-bomber の CPU の判断。規則の型と先頭から試す関数（[CpuBehavior.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/ai/CpuBehavior.ts)）、規則の並び（[DefaultChain.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/ai/behaviors/DefaultChain.ts)）。以前に試して失敗した規則（袋小路では爆弾を置かずに待つ）を並びに1つ差し込み、爆弾を1個も置かなくなることを見るテスト（[cpu.test.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/tests/ai/cpu.test.ts)） | animal-bomber の CPU の判断。規則の並びと先頭から試す `for` 文（[chain.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/ai/chain.py)）、規則の関数（[behaviors.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/ai/behaviors.py)）。1つの規則の中で、探し方の条件を厳しい順に緩めていく使い方もある（behaviors.py の逃げる規則。燃えかけているマスと踏むと損をするアイテムを避ける → アイテムは踏む → 燃えかけているマスも通る） |
 | State | animal-bomber のプレイヤーの状態。状態の union（[Life.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/state/Life.ts)）と、`never` への代入で扱い忘れを型エラーにする分岐（[WorldState.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/state/WorldState.ts) の `hashLife`）。同じ仕掛けを `assertNever` の形で、イベントの union にも使っている（[SimEvent.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/events/SimEvent.ts)）。ラウンドの判定（[RoundSystem.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/systems/RoundSystem.ts) の `RoundVerdict`）と、通信対戦の局面（[LockstepClient.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/net/LockstepClient.ts) の `LanPhase`）も union で表している。中身を持たない状態の `ALIVE` と `OUT` は、全員で1つの値を使い回し、`Object.freeze` している（[state.ts](typescript/src/patterns/state.ts) の約束の2つ目） | animal-bomber のプレイヤーの状態。状態の union（[player.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/state/player.py) の `Alive`・`Negibon`・`Out` と `Life`）と、`match` と `assert_never` で扱い忘れを型エラーにする分岐（[world.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/state/world.py) の `_hash_life`）。イベントの union（[events.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/events.py) の `SimEvent`。受け取る側は [presenter.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/presentation/presenter.py)）、ラウンドの判定（[round.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/systems/round.py) の `RoundVerdict`）、通信対戦の局面（[client.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/net/client.py) の `LanPhase`）も union で表している。値を返さない `match` の書き忘れも見つけるよう、mypy の `exhaustive-match` を有効にしている（[pyproject.toml](https://github.com/nakatama225/animal-bomber/blob/main/py/pyproject.toml)） |

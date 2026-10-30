@@ -9,6 +9,8 @@
  *
  * - 記録する … 出どころを `RecordingSource` で包む。包まれた側は、記録されていることを知らない
  * - 再生する … 出どころを `ReplaySource` に差し替える。処理の側は1行も変わらない
+ * - 遅れて届く命令を使う … 届いた順に `ArrivalLog` で受け取り、それを `ReplaySource` に渡す。
+ *   まだ届いていない歩を読むと止まる
  *
  * ⚠️ 再生して同じ結果になるのは、次の2つが守られているときだけ。
  *
@@ -36,6 +38,18 @@ export interface CommandSource<S, C> {
    * 型エラーにならず、実行して初めて落ちる。
    */
   readonly commandAt: (step: number, view: Readonly<S>) => C;
+}
+
+/**
+ * 歩の番号から命令を返すもの。`ReplaySource` が受け取る。
+ *
+ * `CommandLog` と `ArrivalLog` のメソッドが、宣言せずにそのまま当てはまる。
+ * `CommandSource` と同じく、関数を持つ項目の形で書いている。メソッドの形だと、歩の型を狭めた
+ * `at` を渡しても型エラーにならない。
+ */
+export interface CommandLookup<C> {
+  /** `step` 歩目の命令を返す。 */
+  readonly at: (step: number) => C;
 }
 
 /** 記録の1件。`step` 歩目から、命令が `command` に変わった。 */
@@ -128,16 +142,96 @@ export class CommandLog<C> {
 }
 
 /**
+ * 順に届く命令の記録。どの歩まで届いたかを持ち、届いていない歩を読ませない。
+ *
+ * `CommandLog.at` だけでは足りない。`at` は記録より先の歩に最後の命令を返すので、
+ * まだ届いていない歩を読んでも、それらしい命令が返る。記録を再生するだけならそれでよいが、
+ * 遅れて届く命令に使うと、届く前に読んだ側だけが別の命令で進み、黙ってずれる。
+ * この記録は、届いていない歩を読むと止まる。
+ *
+ * 命令は歩の順に1つずつ届く約束にし、飛んだら止める。飛んだ歩を受け付けると、抜けた歩には
+ * 直前の命令が続いて見え、本当の命令が後から届いても受け取れない。
+ *
+ * 届いた範囲は、中の `CommandLog` が最後に受け付けた歩（`lastStep`）をそのまま使い、
+ * 別に数えない。`CommandLog` は命令が変わらない歩でも `lastStep` を進めるので、
+ * 同じ命令が続く間も範囲は進む。出どころが複数あり、それぞれ別々に届くなら、出どころごとに1つ作る。
+ *
+ * 中の `CommandLog` は外に出さない。外から `record` を呼べると、順の検査を通らずに歩を飛ばせる。
+ * 保存するなら `entries()` と `arrivedThrough` を残す。
+ */
+export class ArrivalLog<C> {
+  readonly #log: CommandLog<C>;
+
+  /**
+   * @param idle 最初に命令が変わるより前の歩に返す、何もしない命令
+   * @param equals 2つの命令が同じかを判定する。`CommandLog` に渡し、既定も同じ `Object.is`
+   */
+  constructor(idle: C, equals: (a: C, b: C) => boolean = Object.is) {
+    this.#log = new CommandLog(idle, equals);
+  }
+
+  /** 届いた最後の歩。まだ1つも届いていなければ -1。 */
+  get arrivedThrough(): number {
+    return this.#log.lastStep;
+  }
+
+  /**
+   * `step` 歩目に届いた命令を受け取る。直前と同じ命令でも、範囲は進む。
+   *
+   * @throws RangeError `step` が届いた最後の歩の次でないとき（飛んだ・戻った・同じ歩の2度目・
+   *   負の歩・小数の歩）。断ったときは、届いた範囲も記録も変えない
+   */
+  put(step: number, command: C): void {
+    const expected = this.#log.lastStep + 1;
+    if (step !== expected) {
+      throw new RangeError(`届く順が乱れた: ${expected} 歩目を待っていたのに ${step} 歩目`);
+    }
+    this.#log.record(step, command);
+  }
+
+  /**
+   * `step` 歩目の命令が届いているか。
+   *
+   * @throws RangeError `step` が 0 以上の整数でないとき。数え間違いの歩に、届いた・届いていないの
+   *   どちらで答えても、誤りが黙って先へ進む
+   */
+  has(step: number): boolean {
+    checkStep(step);
+    return step <= this.#log.lastStep;
+  }
+
+  /**
+   * `step` 歩目の命令を返す。
+   *
+   * @throws RangeError `step` が 0 以上の整数でないとき、またはまだ届いていないとき
+   *   （読む側が、届くのを待たずに進めた）
+   */
+  at(step: number): C {
+    if (!this.has(step)) {
+      throw new RangeError(`${step} 歩目の命令はまだ届いていない（届いた最後の歩: ${this.arrivedThrough}）`);
+    }
+    return this.#log.at(step);
+  }
+
+  /** 届いた命令のうち、変わった歩と命令の一覧（`CommandLog.entries`）。 */
+  entries(): CommandChange<C>[] {
+    return this.#log.entries();
+  }
+}
+
+/**
  * 記録した命令を流す出どころ。
  *
  * 状態を見ずに、歩の番号だけで命令を決める。だから、記録したときと同じ状態から
  * 始めれば、同じ命令が同じ順に流れる。状態の型を `unknown` にしてあるので、
  * どの状態を扱う処理にも差し込める。
+ *
+ * 記録は `CommandLog` でも `ArrivalLog` でもよい。`ArrivalLog` を渡すと、まだ届いていない歩で止まる。
  */
 export class ReplaySource<C> implements CommandSource<unknown, C> {
-  readonly #log: CommandLog<C>;
+  readonly #log: CommandLookup<C>;
 
-  constructor(log: CommandLog<C>) {
+  constructor(log: CommandLookup<C>) {
     this.#log = log;
   }
 

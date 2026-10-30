@@ -37,6 +37,9 @@ python/
       test_cascade_earliest_times.py  cascade.py の最も早い時刻（earliest_times）のテスト
       test_cascade_invalid.py    cascade.py の2つの関数が止める値のテスト
       fake_reaches.py            上のテストが使う偽の届く関係。テストの補助で、src には対応しない
+    patterns/
+      test_command_arrival.py    command.py の届いた範囲を持つ記録（ArrivalLog）のテスト。
+                                 test_command.py から分けた
 ```
 
 標準ライブラリだけで書いているので、実行に要る依存はありません。

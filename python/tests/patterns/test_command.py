@@ -1,4 +1,9 @@
-"""命令を値として渡す型（Command）の検査。"""
+"""命令を値として渡す型（Command）のうち、記録と再生の検査。
+
+記録と再生（CommandLog・RecordingSource・ReplaySource）をここで見る。届いた範囲を
+持つ記録（ArrivalLog）は ``test_command_arrival.py`` が見る。変わる理由が違うので、
+ファイルを分けた。
+"""
 
 from dataclasses import dataclass
 from typing import Literal

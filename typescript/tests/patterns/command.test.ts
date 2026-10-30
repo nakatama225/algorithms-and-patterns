@@ -6,6 +6,12 @@ import {
   type CommandSource,
 } from '../../src/patterns/command.js';
 
+/*
+ * src/patterns/command.ts のうち、記録と再生（CommandLog・RecordingSource・ReplaySource）のテスト。
+ * 届いた範囲を持つ記録（ArrivalLog）は command-arrival.test.ts が見る。変わる理由が違うので、
+ * ファイルを分けた。
+ */
+
 /** 確かめるための小さな処理。数直線の上の位置を、命令のぶんだけ動かす。 */
 type Move = -1 | 0 | 1;
 interface Point {

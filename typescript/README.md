@@ -32,6 +32,9 @@ typescript/
       cascade-earliest-times.test.ts  src/lib/cascade.ts の最も早い時刻（earliestTimes）のテスト
       cascade-invalid.test.ts  src/lib/cascade.ts の2つの関数が止める値のテスト
       fake-reaches.ts          上のテストが使う偽の届く関係。テストの補助で、src には対応しない
+    patterns/
+      command-arrival.test.ts  src/patterns/command.ts の届いた範囲を持つ記録（ArrivalLog）のテスト。
+                               command.test.ts から分けた
 ```
 
 置いてある型の一覧と、Python 版との違いは[リポジトリ全体の README](../README.md) にあります。
