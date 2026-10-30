@@ -9,7 +9,8 @@
 足りるので、書き方の見本をテストに置いています。共通部品（`lib/`）は置き始めたところで、
 いまは二分探索（TypeScript だけ。Python は標準ライブラリの `bisect` で足ります）と、
 決定的な擬似乱数と、状態の要約と、固定刻みの時間（待つ部品は Python だけ）と、格子と、
-幅優先の最短経路と、連鎖の一括処理（最も早く発火する時刻を求める関数を含みます）の7つです。
+幅優先の最短経路と、連鎖の一括処理（最も早く発火する時刻を求める関数を含みます）と、外から来た値の
+読み取り（10 進の整数を書いた文字列の読み取りを含みます）の8つです。
 具体的な解答（`problems/`）はまだありません。次に足すのは、実際の作品（animal-bomber など）で
 使った共通部品と、設計の型に足す部品です。
 
@@ -117,8 +118,9 @@ TypeScript 版が出した値を、Python 版のテストに1度貼っただけ�
 `tests/` は `src/` と同じ構造にします。例外は4つで、Python の State は部品が無いので
 見本だけをテストに置いています。層の向き・決定性を崩す書き方・静的検査の設定を確認するテスト
 （`test_layers.py`・`test_determinism_guard.py`・`lint-rules.test.ts`）と、2つの言語の固定値の表を突き合わせるテスト
-（`test_cross_language.py`）と、テストが使う偽の物（Python の偽の時計 `fake_time.py` と、両方の言語の
-偽の届く関係 `fake_reaches.py`・`fake-reaches.ts`）は、`src/` のどのファイルにも対応しません。
+（`test_cross_language.py`）と、テストが使う偽の物と補助（Python の偽の時計 `fake_time.py`、両方の言語の
+偽の届く関係 `fake_reaches.py`・`fake-reaches.ts`、止めた文の頭を比べる `error_head.py`・`error-head.ts`）は、
+`src/` のどのファイルにも対応しません。
 反対に、乱数の部品（`rng`）はテストを2つのファイルに分けています。乱数を生成する本体と、
 種を導く関数は変わる理由が違うためです（`rng.test.ts` と `rng-derive-seed.test.ts`、
 Python は `test_rng.py` と `test_rng_derive_seed.py`）。固定刻みの時間（`fixed_step`）も、同じ理由で、
@@ -133,6 +135,11 @@ Python は `test_rng.py` と `test_rng_derive_seed.py`）。固定刻みの時�
 （`cascade.test.ts`・`cascade-earliest-times.test.ts`・`cascade-invalid.test.ts`、Python は `test_cascade.py`・
 `test_cascade_earliest_times.py`・`test_cascade_invalid.py`）。最も早い時刻は一括処理と同じたどり方を使いますが、
 時刻の扱い（無限大や同じ時刻の順）は、たどり方とは別の理由で変わります。
+外から来た値の読み取り（`strict-read`）も、項目の読み取り・JSON の読み込み・閉じた種類への読み替えの3つに
+テストを分けています（`strict-read.test.ts`・`strict-read-json.test.ts`・`strict-read-choice.test.ts`、Python は
+`test_strict_read.py`・`test_strict_read_json.py`・`test_strict_read_enum.py`。読み替えの関数の名前が、TypeScript は
+`readChoice`、Python は `read_enum` です）。項目の型と範囲の約束、標準の JSON の読み込みが黙って読むものの断り方、
+種類の決め方は、それぞれ別の理由で変わります。
 設計の型では Command が、記録と再生のテストと、届いた範囲を持つ記録（`ArrivalLog`）のテストを
 分けています（`command.test.ts` と `command-arrival.test.ts`、Python は `test_command.py` と
 `test_command_arrival.py`）。順に1つずつ受け取ることと、届いていない歩を読ませないことの約束は、
@@ -158,6 +165,7 @@ Python は `command_sources.py`）も、合わせる部品のテストと、途�
 | 格子 | マス目を、左上から行ごとに並べた1本の配列で持つ。外を読むと、作るときに決めた値を返すので、通れないものを表す値にすれば、使う側は範囲を確認せずに読める。外へ書くと止める | [grid.ts](typescript/src/lib/grid.ts) の `Grid` | [grid.py](python/src/algorithms_and_patterns/lib/grid.py) の `Grid` |
 | 幅優先の最短経路 | 重みの無い格子で、条件を満たす最初のマスまでの最短経路を求める。格子の入れ物を受けず、列と行の数と、通れるかを答える関数だけで動くので、探索だけでも使える。同じ長さの経路のどれを返すかは、隣を試す順で決まる | [grid.ts](typescript/src/lib/grid.ts) の `findPath` | [grid.py](python/src/algorithms_and_patterns/lib/grid.py) の `find_path` |
 | 連鎖の一括処理と最も早い時刻 | 要素が発火すると届く相手も同じ時刻に発火するとき、連鎖が尽きるまでまとめてたどり、発火した要素を1度ずつ返す。発火が起きる前に、要素ごとの時刻から、それぞれが実際に発火する最も早い時刻も、同じ届く関係とたどり方で見積もる | [cascade.ts](typescript/src/lib/cascade.ts) | [cascade.py](python/src/algorithms_and_patterns/lib/cascade.py) |
+| 外から来た値の読み取り | JSON や保存した文字列から、項目を型と範囲を見ながら取り出す。合わなければ既定値で埋めずに止め、止める文はどの項目かで始める | [strict-read.ts](typescript/src/lib/strict-read.ts)、[decimal-text.ts](typescript/src/lib/decimal-text.ts) | [strict_read.py](python/src/algorithms_and_patterns/lib/strict_read.py)、[decimal_text.py](python/src/algorithms_and_patterns/lib/decimal_text.py) |
 
 `lib/` の部品は、同じ入力から、起動のたびに同じ結果を出します。固定値の表を持つ部品（乱数と
 状態の要約）は、さらに環境と言語をまたいでも1ビットも違わない値を出します。前の約束を崩す書き方を
@@ -683,6 +691,158 @@ Python 版は、同じマスが重なって入ることと、抽選を足すと�
 `Detonation.destroyed`、Python 版に抽選を足したコミット d8a08cc の本文）。このリポジトリの一括処理では、
 積む前に印を見る行がこの役目を持ちます。この行を消すと、ひし形の連鎖で同じ要素を2度返すことを、テストで
 見ています。
+
+### 外から来た値の読み取り
+
+通信で届いた JSON や、自分で決めた形で保存した文字列のように、外から来た値を、型と範囲を見ながら読む
+部品です。合わない値は、既定値で埋めたり読み飛ばしたりせず、`ReadError` で止めます。止める文は、どの項目かで
+始めます（`count が無い`、`names[1] が文字列でない: 2`）。
+
+読み飛ばすと、足りない項目を待ったまま止まり、原因が別の所に見えます。既定値で埋めると、同じ入力から作るはずの
+結果が、読んだ側だけ違うものになります。animal-bomber の通信対戦は、全員の端末が同じ設定と同じ操作から同じ試合を
+進める作りで、通信の約束の説明に、この2つが書いてあります（読み飛ばすと原因が「通信が遅い」に見える。試合の
+設定を既定値で埋めると、その端末だけ別の試合になる）。
+
+- 読み込み（`parseJsonObject`・`load_json_object`）：JSON の文字列を読み、外側がオブジェクトであることを見ます。
+  無限大になる数（`1e400`）と、JSON に無い `NaN`・`Infinity` は、読まない項目の奥にあっても、読み込む所で
+  断ります。読めない文字列も、入れ子が深すぎて標準の部品が別の例外を出す文字列も、`ReadError` にします
+- 項目の読み取り（`readInt`・`read_int` など）：項目を1つ、型を見ながら取り出します。無い項目も止めます。整数は
+  最小と最大の両方を必ず受け、最小と最大そのものは読めます。読む時点で上限を置かないと、受けた値を使う先
+  （32 ビットの数を前提にした計算など）で、別の例外として止まります。余分な項目は読み飛ばすので、書く側が
+  項目を足しても、読む側が知っている項目は読めます
+- 配列（`readArray`・`read_list`）：要素を読む関数を受け取り、要素を1つずつ、項目と同じ読み取りで読みます。
+  止める文は、要素の位置（`names[1]`）で始まります。型を見ていない要素をそのまま返すと、使う側が要素を読む所で、
+  同じ検査をもう一度書きます
+- 閉じた種類への読み替え（`readChoice`・`read_enum`）：文字列の項目を、決めた種類のどれかとして読みます。
+  知らない値は、既定の種類に倒さずに止めます。読み替えは、外から来た所で1度だけ行います
+- 10 進の整数を書いた文字列（`parseDecimal`・`parse_decimal`）：保存した文字列の中の数を、書く側が書く形
+  （頭に 0 を付けない、ASCII の数字だけの 0 以上の整数）でだけ読み、最大より大きい数を止めます。JSON の
+  読み取りとは変わる理由が違うので、別のファイル（`decimal-text.ts`・`decimal_text.py`）に置いています
+
+書く側も、読む側が読める範囲でだけ書きます。読む側だけを厳しくすると、書いたものを読み戻せなくなります。
+反対に、書く側が書く形は、読む側も受けます。animal-bomber の操作の記録は、読み戻しを厳しくしたときに、
+記録する関数も、読み戻せない時刻（負の数や小数）を断るようにしました。同じ時刻に2度記録したものは、
+書く側がそのまま書くので、読む側も受けています（どちらも、TypeScript 版のコミット f77ae5d の本文）。
+
+この部品は固定値の表を持たず、約束は下の「決定性を崩す書き方の検査」の1つ目（同じ入力から、起動のたびに
+同じ結果を出す）だけです。読んだ値は、型と範囲を見て返すだけです。値を変えるのは、TypeScript の `readInt` が
+-0 を 0 にそろえることと、Python の `read_float` が整数を float にすることだけです。
+
+言語で形が変わったところは6つです。
+
+- 黙って通る値：どちらの言語にも、書く側が書かない形を黙って読む所があり、その所が違います。Python は、
+  `bool` が `int` の仲間（`True == 1`）で、`json` は JSON に無い `NaN`・`Infinity` を数として読み、`1e400` を
+  無限大にします。`int()` は前後の空白と改行（`' 1\n'`）、桁の区切り（`'1_000'`）、符号（`'+1'`）、全角や
+  ほかの文字の数字（`'１２'`・`'٣'`）を読み、正規表現の `\d` も全角の数字に合います。`re.match` と `$` の組は
+  末尾の改行の前でも合うので、`re.fullmatch` で文字列の全体に当てます。JavaScript は、`'toString' in {}` が
+  真で、`{}['__proto__']` は `Object.prototype` を返すので、項目の有無を `Object.hasOwn` で見ます。`Number` は
+  空の文字列を 0 と、`' 1\n'` を 1 と、`'0x10'` を 16 と、`'1e3'` を 1000 と読むので、正規表現で形を見てから
+  数にします。JavaScript の `\d` は ASCII の数字にだけ合い（`u` を付けても同じ）、`$` は `m` を付けなければ
+  末尾の改行の前で合いません。そのため TypeScript 版では、`[0-9]` を `\d` に替えても答えは変わりません。
+  Python 版にそろえて `[0-9]` と書いています
+- 整数と小数：Python の `json` は `1.0` と `1e3` を小数として読むので、整数の項目では止めます。JavaScript の
+  `JSON.parse` が返す値は `1` と `1000` で、整数と見分けられないので、TypeScript 版は読みます。Node.js 26 は、
+  値を1つ読むたびに呼ばれる関数（reviver）の3つ目の引数に、書いたままの字面を渡しますが、型の設定（ES2022）の
+  `JSON.parse` の型にはその引数が無いので、使っていません。TypeScript は、安全な整数（絶対値が 2**53 未満の
+  整数）でない数も止めます。`Number('9007199254740993')` は 2**53 に丸まり、隣の数と区別できません。範囲の
+  最小と最大も、`parseDecimal` の最大も、安全な整数に限ります。Python の `int` は大きさに限りが無いので、
+  範囲で止めます（`parse_decimal` は、2**53 より大きい数も最大まで読みます）。桁あふれは、Python は小数
+  （`1e400`）を読み込みで断ります。桁の多い整数は、4300 桁までは読み込んでから項目の範囲で止め、それを超えると
+  `int()` の桁の上限で `json` が `ValueError` を出すので、読み込みで `ReadError` にします。JavaScript は整数も
+  小数として読むので、400 桁の整数も読み込みで無限大になり、そこで断ります
+- -0：`JSON.parse('-0')` は -0 です。TypeScript の `readInt` は 0 にそろえて返します。`Object.is` で比べる所
+  （このリポジトリの Command の既定の比べ方）では、-0 と 0 が別の値になるためです。`readFloat` は -0 のまま
+  返します。Python の `json` は `-0` を整数の 0 として読むので、小数の項目でも 0.0 になります（`-0.0` と
+  書けば -0.0）
+- 閉じた種類：TypeScript の `readChoice` は文字列の配列を受け、その文字列の union の型で返します。Python の
+  `read_enum` は `Enum` のクラスを受け、値（`value`）が等しいメンバー（クラスに並べた種類の1つ）を返します。
+  読むのは文字列だけです。整数を種類に渡す形にすると、標準ライブラリの3つの振る舞いを、それぞれ先に断る
+  必要があります。`IntFlag` は、決めていない
+  ビットを含む値を断る指定（`boundary=STRICT`）でも、負の整数を補数として受けます（`READ = 1`・`WRITE = 2`
+  の種類 `Access` で、-1 は `READ|WRITE`、-2 は `WRITE`、-4 は何も立てていない値。-5 と 4 は断ります）。
+  指定の無い `IntFlag` は、決めていないビットも受けます。`IntEnum` は `True` と `1.0` を 1 の値として受けます。
+  文字列からは、整数を値に持つ種類の値を作れない（`Access('3')` は `ValueError`）ので、文字列だけを読めば、
+  この3つは起きません。止める文は、候補の値も断った値と同じく `repr` で並べるので、整数を値に持つ種類では
+  `'1'（1・2 のどれか）` のように、断ったのが文字列であることが分かります（TypeScript 版も、候補を引用符つきで
+  並べます）。
+  止めるのは実行時で、型検査は止めません。型変数の上限は `Enum` で、`IntFlag` も `Enum` の仲間なので、
+  mypy は `read_enum(obj, key, Access)` を通します。上限を `StrEnum` にすれば mypy が止めますが、文字列を値に
+  持つふつうの `Enum`（animal-bomber の動物の種類と CPU の強さ）も通らなくなります。ビットの組を外から
+  読むときは、`read_int` で 0 以上と上限を見てから作ります（`Access(read_int(obj, "access", minimum=0, maximum=3))`）。
+  3つの振る舞いは、この関数が整数を読まない理由として、テスト（`test_strict_read_enum.py`）に置いています
+- 例外：Python の `ReadError` は `ValueError` の子で、`json` が出す例外と同じ仲間です。TypeScript の
+  `ReadError` は `Error` の子で、`RangeError` の子にはしていません。ほかの `lib/` の部品は、呼ぶ側の誤りを
+  `RangeError` で止めます。外から来た値の誤りは、受け取った側で断って続けることがあるので、同じ `catch` で
+  受けないように分けました。元の例外は、Python が `from exc`（`__cause__`）で、TypeScript が `cause`（ES2022）で
+  残します。この部品も、呼ぶ側が渡した範囲の誤り（最小が最大より大きい、`parseDecimal`・`parse_decimal` の
+  最大が負、TypeScript では最小か最大が安全な整数でない）は `ReadError` にせず、TypeScript は `RangeError`、
+  Python は `ValueError` で止めます。Python の `ReadError` も `ValueError` の子ですが、`except ReadError` で
+  受ければ、呼ぶ側の誤りは受けません
+- 入れ子の深さ：Python の `json` は、入れ子が深いと `RecursionError` を出します。1000 段の入れ子は、3.11 では
+  読めず、3.14 では読めました。TypeScript の `JSON.parse` は 1000 万段でも読めますが、無限大を断るために
+  reviver を付けると、1 万段で `RangeError` になりました（Node.js 26）。
+  どちらも `ReadError` にします。止まる深さは、版と実行環境で違います
+
+見ないものもあります。
+
+- 同じ項目名が2度ある JSON は、どちらの言語も後の値を読みます。`JSON.parse` は後の値を使い、見つける手段が
+  ありません。Python は `json.loads` の `object_pairs_hook` で見つけられますが、2つの言語の答えをそろえて、
+  断りません。オブジェクトを `JSON.stringify` で書く限り、同じ名前は書かれません。Python の `json.dumps` は
+  名前を文字列にしてから書くので、名前が文字列だけの辞書なら重なりませんが、`{1: 'a', '1': 'b'}` のように
+  文字列にすると同じになる名前を持つ辞書からは、同じ名前を2度書きます（読み戻すと、後の `'b'` だけが残ります）
+- オブジェクトの中の項目は、その項目の名前だけで文を始めます（`config` の中の `size` が無ければ `size が無い`）。
+  配列の要素は、配列の名前と位置で始めます
+- 文字列の中身（対になっていないサロゲートなど）は見ません
+- 小数の項目に書いた 2**53 より大きい整数は、Python でも float にする所で丸まります
+
+型の宣言から読み取りを作るライブラリ（TypeScript の zod、Python の pydantic）は選びませんでした。この
+リポジトリは、実行に要る依存を持たないためです（Python の `dependencies` は空で、TypeScript も開発用の
+依存だけです）。
+
+animal-bomber から持ってきたものと、変えた点は次のとおりです。
+
+- 読み込みと項目の読み取りは、通信の約束の読み取り（[protocol.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/net/protocol.py) の
+  `_load_object` と `_Fields`、[protocol.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/net/protocol.ts) の
+  `FieldReader`）から持ってきました。`NaN`・`Infinity`・`1e400` を断る `parse_constant`・`parse_float`、`True` を
+  断る整数の読み取り、`'toString' in` が真になるので `Object.hasOwn` で有無を見ること、です。protocol.py の
+  モジュールの説明は、TypeScript 版も断るが Python では通るもの（`bool`・`NaN`・`Infinity`・`1e400`・負の数の
+  入力のビット）と、TypeScript 版に無い検査（`1.0`・動物の数・上限）を分けて書いています
+- 上限を必ず受ける形にしました。animal-bomber の Python 版は、届いた設定の制限時間と体力に上限
+  （`WIRE_INT_MAX`。符号つき 32 ビットの最大）を置いています（TypeScript 版は置いていません）。Python 版の
+  状態の要約は 32 ビットに収まる整数しか混ぜられず、上限を置かずに 2**32 近くまで受けると、最初の要約を送る
+  時点で全員の端末が例外で止まることが、Python 版のレビューで見つかったためです（コミット 63fc404 の本文）。
+  animal-bomber の Python 版の整数の読み取り（`_Fields.integer`）は上限を省け、TypeScript 版（`FieldReader.int`）は
+  上限を受けませんが、このリポジトリの `readInt`・`read_int` は省けません
+- TypeScript の整数の確認を、`Number.isInteger` から `Number.isSafeInteger` に替えました。animal-bomber の
+  通信の約束は `Number.isInteger` で見ていて、2**53 以上の整数も通ります（記録の読み戻しの InputLog.ts は
+  `Number.isSafeInteger` で見ています）
+- 10 進の整数の読み取りは、操作の記録の読み戻し（[input_log.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/net/input_log.py) の
+  `_ENTRY`、[InputLog.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/net/InputLog.ts) の
+  `decode`）から持ってきました。Python 版は `\d` でなく `[0-9]` で書き、`fullmatch` で全体に当てます。
+  TypeScript 版は、`Number` の前に正規表現で形を見ます。記録の文字列は、プレイヤーごとの操作を `|` で区切って
+  並べた形（`0:12,8;30,0|1:…`）で、animal-bomber は `|` で区切った1つを区画、区画の最初の `:` より前
+  （プレイヤーの番号か、途中で抜けたプレイヤーを表す `departed`）を見出しと呼んでいます。TypeScript 版の記録の
+  読み戻しは、以前は読めない区画を例外にせず、見出しの無い区画（`:0,8`）を、`Number('')` が 0 になるので
+  プレイヤー 0 の操作として読み、見出しを書き誤った区画（`departd:1,5`）を、番号が NaN のプレイヤーの操作として
+  読んでいました。後者では途中で抜けたプレイヤーが記録から消え、再生するとそのプレイヤーの最後の入力を
+  使い続け、例外も出ずに別の試合になります。製品にまだ記録の文字列を読む経路が無いうちに、読む側を足す前に
+  修正しています（コミット f77ae5d の本文。抜けたプレイヤーの区画の tick が数でないと NaN になり、代わりの
+  出どころに替わらない件は、その前のレビューのコミット 67f3fb6 の本文）
+- `IntFlag` の負の数の件は、animal-bomber の入力の型の説明（[player_input.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/input/player_input.py)）に
+  あります。通信の約束は、入力のビットを 0 以上の整数として読んでから `PlayerInput` にし（protocol.py の
+  `_Fields.bits`）、記録の読み戻しは正規表現が `-` を読まないので、どちらにも負の数は届きません
+- 1つのメッセージを読むクラス（`_Fields`・`FieldReader`。メッセージの種類の名前を持ち、文の頭に付ける）を、
+  項目ごとの関数にしました。文は、メッセージの種類でなく項目の名前で始めます。配列は、要素の形ごとの
+  メソッド（整数の配列・番号の配列・報告の配列）の代わりに、要素を読む関数を受け取ります
+
+閉じた種類への読み替えは、data-science-portfolio の着陸の結果の読み取り
+（[labeling.py](https://github.com/nakatama225/data-science-portfolio/blob/main/ibm-capstone-spacex/src/spacex_capstone/preprocessing/labeling.py)）
+にもあります。`LandingMethod.from_raw` は、知らない表記を既定の方式に倒さず、`raise ... from exc` で止めます。
+一方 `LandingOutcome.parse` は、成否と方式を別々の項目に読むので、`'True None'` から、成功したのに着陸を
+試みていない値（`succeeded=True`・`attempted=False`）を作れます（`attempted` の説明には、試みていなければ
+`succeeded` は必ず False とあります）。項目を1つずつ厳しく読んでも、組み合わせとしてありえない値は止まりません。
+同時には成り立たない値の組があるときは、項目を独立に持たず、設計の型の State（状態を閉じた union で表す）の
+ように、状態ごとに持つ値を分けます。
 
 ### 決定性を崩す書き方の検査
 

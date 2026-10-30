@@ -109,6 +109,8 @@ def test_libの下のどのファイルにも_禁じた書き方が無い() -> N
     assert f"{TOP}/lib/fixed_step.py" in results
     assert f"{TOP}/lib/grid.py" in results
     assert f"{TOP}/lib/cascade.py" in results
+    assert f"{TOP}/lib/strict_read.py" in results
+    assert f"{TOP}/lib/decimal_text.py" in results
     assert {path: found for path, found in results.items() if found} == {}
 
 

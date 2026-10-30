@@ -56,7 +56,7 @@ describe('層の向き：lib/ は patterns/ と problems/ を読み込まない'
   const RULE = 'no-restricted-imports';
 
   it('src/lib の下のファイルには、下のフォルダの中まで規則が当たる', async () => {
-    // 初めの6つは実在するファイル。範囲の書き方を誤って、どのファイルにも当たらなくなったときに失敗する。
+    // 初めの8つは実在するファイル。範囲の書き方を誤って、どのファイルにも当たらなくなったときに失敗する。
     for (const path of [
       'src/lib/bisect.ts',
       'src/lib/rng.ts',
@@ -64,6 +64,8 @@ describe('層の向き：lib/ は patterns/ と problems/ を読み込まない'
       'src/lib/fixed-step.ts',
       'src/lib/grid.ts',
       'src/lib/cascade.ts',
+      'src/lib/strict-read.ts',
+      'src/lib/decimal-text.ts',
       'src/lib/__probe__.ts',
       'src/lib/sub/__probe__.ts',
     ]) {
@@ -122,7 +124,7 @@ describe('決定性：lib/ では乱数・時刻・for...in を止める', () =>
   }
 
   it('src/lib の下のファイルには、下のフォルダの中まで規則が当たる', async () => {
-    // 初めの6つは実在するファイル。
+    // 初めの8つは実在するファイル。
     for (const path of [
       'src/lib/bisect.ts',
       'src/lib/rng.ts',
@@ -130,6 +132,8 @@ describe('決定性：lib/ では乱数・時刻・for...in を止める', () =>
       'src/lib/fixed-step.ts',
       'src/lib/grid.ts',
       'src/lib/cascade.ts',
+      'src/lib/strict-read.ts',
+      'src/lib/decimal-text.ts',
       'src/lib/__probe__.ts',
       'src/lib/sub/__probe__.ts',
     ]) {

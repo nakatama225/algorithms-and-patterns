@@ -1,8 +1,9 @@
 # TypeScript 実装
 
-**現在の状態（2026年10月）**：`src/patterns/` に設計の型が4つ、`src/lib/` に共通部品が7つ
+**現在の状態（2026年10月）**：`src/patterns/` に設計の型が4つ、`src/lib/` に共通部品が8つ
 （二分探索と決定的な擬似乱数と状態の要約と固定刻みの時間と、`grid.ts` の格子と幅優先の最短経路と、
-`cascade.ts` の連鎖の一括処理と最も早い時刻）あります。固定刻みの時間の待つ部品
+`cascade.ts` の連鎖の一括処理と最も早い時刻と、`strict-read.ts` と `decimal-text.ts` の外から来た値の読み取り）
+あります。固定刻みの時間の待つ部品
 （締め切りまで眠る関数とフレームの輪）は、Python 版だけに置いています。`src/problems/` はまだありません。
 
 ```text
@@ -32,6 +33,11 @@ typescript/
       cascade-earliest-times.test.ts  src/lib/cascade.ts の最も早い時刻（earliestTimes）のテスト
       cascade-invalid.test.ts  src/lib/cascade.ts の2つの関数が止める値のテスト
       fake-reaches.ts          上のテストが使う偽の届く関係。テストの補助で、src には対応しない
+      strict-read.test.ts      src/lib/strict-read.ts の項目を1つ取り出す関数（readInt・readArray など）のテスト
+      strict-read-json.test.ts  src/lib/strict-read.ts の JSON の文字列を読み込む関数（parseJsonObject）のテスト
+      strict-read-choice.test.ts  src/lib/strict-read.ts の決めた文字列への読み替え（readChoice）のテスト
+      error-head.ts            上のテストと decimal-text.test.ts が使う、止めた文の頭の比べ方。
+                               テストの補助で、src には対応しない
     patterns/
       command-arrival.test.ts  src/patterns/command.ts の届いた範囲を持つ記録（ArrivalLog）のテスト。
                                command.test.ts から分けた

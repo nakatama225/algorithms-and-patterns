@@ -4,7 +4,8 @@
 4つ目の State は標準ライブラリ（`typing.assert_never` と `match`）で足りるので、部品を置かず、
 書き方の見本を `tests/patterns/test_state.py` に置いています。`lib/`（共通部品）には
 決定的な擬似乱数（`rng.py`）と、状態の要約（`state_hash.py`）と、固定刻みの時間（`fixed_step.py`）と、
-格子と幅優先の最短経路（`grid.py`）と、連鎖の一括処理と最も早い時刻（`cascade.py`）があります。
+格子と幅優先の最短経路（`grid.py`）と、連鎖の一括処理と最も早い時刻（`cascade.py`）と、外から来た値の
+読み取り（`strict_read.py` と、10 進の整数を書いた文字列を読む `decimal_text.py`）があります。
 固定刻みの時間の待つ部品（締め切りまで眠る関数とフレームの輪）は、Python だけに置いています。TypeScript 版が `lib/` に置いた二分探索は、
 標準ライブラリの `bisect` で足りるので置いていません。`problems/` はまだありません。
 
@@ -37,6 +38,11 @@ python/
       test_cascade_earliest_times.py  cascade.py の最も早い時刻（earliest_times）のテスト
       test_cascade_invalid.py    cascade.py の2つの関数が止める値のテスト
       fake_reaches.py            上のテストが使う偽の届く関係。テストの補助で、src には対応しない
+      test_strict_read.py        strict_read.py の項目を1つ取り出す関数（read_int・read_list など）のテスト
+      test_strict_read_json.py   strict_read.py の JSON の文字列を読み込む関数（load_json_object）のテスト
+      test_strict_read_enum.py   strict_read.py の閉じた種類への読み替え（read_enum）のテスト
+      error_head.py              上のテストと test_decimal_text.py が使う、止めた文の頭の比べ方。
+                                 テストの補助で、src には対応しない
     patterns/
       test_command_arrival.py    command.py の届いた範囲を持つ記録（ArrivalLog）のテスト。
                                  test_command.py から分けた
