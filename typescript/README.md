@@ -35,6 +35,11 @@ typescript/
     patterns/
       command-arrival.test.ts  src/patterns/command.ts の届いた範囲を持つ記録（ArrivalLog）のテスト。
                                command.test.ts から分けた
+      command-sources.test.ts  src/patterns/command-sources.ts の出どころを合わせる部品（CombinedSource）のテスト
+      command-handover.test.ts  src/patterns/command-sources.ts の途中で替わる出どころ
+                                （Handover・HandoverSource）のテスト。command-sources.test.ts から分けた
+      command-handover-replay.test.ts  src/patterns/command-sources.ts の途中で替わる出どころを、届いた命令で
+                                       進める側と保存したものを再生する側で比べるテスト。command-handover.test.ts から分けた
 ```
 
 置いてある型の一覧と、Python 版との違いは[リポジトリ全体の README](../README.md) にあります。

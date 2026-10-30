@@ -136,7 +136,13 @@ Python は `test_rng.py` と `test_rng_derive_seed.py`）。固定刻みの時�
 設計の型では Command が、記録と再生のテストと、届いた範囲を持つ記録（`ArrivalLog`）のテストを
 分けています（`command.test.ts` と `command-arrival.test.ts`、Python は `test_command.py` と
 `test_command_arrival.py`）。順に1つずつ受け取ることと、届いていない歩を読ませないことの約束は、
-記録の縮め方や再生の仕方とは別の理由で変わります。
+記録の縮め方や再生の仕方とは別の理由で変わります。出どころを組み立てる部品（`command-sources.ts`、
+Python は `command_sources.py`）も、合わせる部品のテストと、途中で替わる出どころのテストを分けています
+（`command-sources.test.ts` と `command-handover.test.ts`、Python は `test_command_sources.py` と
+`test_command_handover.py`）。全部の出どころに並びの順に聞く約束と、替わる歩の約束は、別の理由で変わります。
+届いた命令で進める側と、保存したものを再生する側を比べるテストも、さらに分けています
+（`command-handover-replay.test.ts`、Python は `test_command_handover_replay.py`）。2つの側を揃える使い方
+（命令の記録と替わる歩を一緒に保存する）は、部品の約束とは別の理由で変わります。
 テストは、部品が正しく動くことの確認であると同時に、
 **その部品が何を保証しているのかの記述**でもあります。エッジケース
 （空、1件、重複、境界値、異常値）を通しておくと、読む人は仕様を読み取れます。
@@ -777,7 +783,7 @@ ESLint の2つの規則（[eslint.config.js](https://github.com/nakatama225/anim
 
 | 型 | 何を解くか | TypeScript | Python |
 |---|---|---|---|
-| Command（命令を値として渡す） | 1歩ずつ進む処理と、「その歩で何をするか」を決める側を切り離す。記録と再生が、部品を1つ挟むだけで作れる。遅れて届く命令は、届いた範囲を持つ記録（`ArrivalLog`）で受け取ると、まだ届いていない歩を読んだときに止まる | [command.ts](typescript/src/patterns/command.ts) | [command.py](python/src/algorithms_and_patterns/patterns/command.py) |
+| Command（命令を値として渡す） | 1歩ずつ進む処理と、「その歩で何をするか」を決める側を切り離す。記録と再生が、部品を1つ挟むだけで作れる。遅れて届く命令は、届いた範囲を持つ記録（`ArrivalLog`）で受け取ると、まだ届いていない歩を読んだときに止まる。出どころは、いくつかを合わせる（`CombinedSource`）ことも、途中で代わりに替える（`HandoverSource`）こともでき、どちらも処理の側は変わらない | [command.ts](typescript/src/patterns/command.ts)、[command-sources.ts](typescript/src/patterns/command-sources.ts) | [command.py](python/src/algorithms_and_patterns/patterns/command.py)、[command_sources.py](python/src/algorithms_and_patterns/patterns/command_sources.py) |
 | Strategy（答え方を差し替える）と登録表 | 同じ問いへの答え方を名前で引けるように並べる。答え方を足すときに、使う側と既存の答え方を触らない | [strategy.ts](typescript/src/patterns/strategy.ts) | [strategy.py](python/src/algorithms_and_patterns/patterns/strategy.py) |
 | Chain of Responsibility（規則を優先順に試す） | 1つの長い if の連なりを、独立した規則の並びにする。規則を足す・外す・入れ替えるのが、並びの1行の操作になる | [chain-of-responsibility.ts](typescript/src/patterns/chain-of-responsibility.ts) | [chain_of_responsibility.py](python/src/algorithms_and_patterns/patterns/chain_of_responsibility.py) |
 | State（状態を閉じた union で表す） | 取りうる状態を型で閉じ、状態ごとに持つ値を分ける。状態を足したときの扱い忘れを、型検査が見つける | [state.ts](typescript/src/patterns/state.ts) | 部品は無し（標準ライブラリで足りる）。書き方の見本は [test_state.py](python/tests/patterns/test_state.py) |
@@ -815,6 +821,83 @@ animal-bomber の `ConfirmedInputs` は、通信で届いた命令を1つの記�
 命令の列を受け取るので、範囲も1つです。出どころが複数あり、それぞれ別々に届くなら、`ArrivalLog` を
 出どころごとに1つ作ります。手元で出した命令も、遠くから届く命令と同じだけ遅らせて
 `ArrivalLog` を通します。手元の命令だけを先に使うと、手元でだけ先に進んでずれます。
+
+### Command の出どころを合わせる・途中で替える
+
+出どころは、組み立てても1つの出どころのままです。処理の側は、組み立てたかどうかを知らず、
+1行も変わりません。組み立てる部品は、記録と再生（`command.ts`・`command.py`）とはファイルを分け、
+`command-sources.ts`・`command_sources.py` に置きました。記録と再生の約束と、出どころの組み立て方は、
+別の理由で変わるためです。
+
+`CombinedSource` は、いくつかの出どころの命令を、呼ぶ側が渡す合わせ方で1つにします。毎歩、並びの
+順に全部の出どころに聞いてから合わせ、答えが途中で決まっても打ち切りません。前の歩を覚えている
+出どころは、聞かれなかった歩のぶん覚えている内容が古くなり、次に聞かれたときにずれます。記録する
+出どころ（`RecordingSource`）なら、その歩の記録が抜けます。空の並びは、作るときに止めます。
+出どころを繋ぎ忘れたまま、空の並びを合わせた命令（真偽の組の OR なら全部が偽）で黙って進めない
+ためです。同じ出どころを2度並べると、1歩に2度聞きます。重なりは見分けません。
+
+`HandoverSource` は、途中から代わりの出どころに任せます。いつ替わるかは、出どころの中ではなく、
+替わる歩を1度だけ決めて持つ記録（`Handover`）に置きました。前の出どころを最後に使う歩（`after`）を
+決めると、その次の歩から「替わった」と答えます。届いた命令で進める側と、保存した記録を再生する側に、
+同じ歩を決めた記録を渡すと、どちらも同じ判定（`replaced_at`・`replacedAt`）で同じ歩に替わります。
+再生する側の記録は、保存した `after` から作り直します。そのため、保存するときは、命令の記録と一緒に
+`after` を残します。代わりの出どころの命令は保存せず、再生する側も同じ作り方で作り直します。
+代わりの命令まで記録して再生すると、替わる歩を渡さなくても結果が一致するので、2つの側が同じ歩に
+替わることをテストで示せません。テストは、代わりの命令を保存しない形にしています。
+
+採らなかった形が2つあります。1つは、替わる歩を出どころ自身に持たせる形です。保存した歩から再生する
+側を作り直すのは今の形と同じで、保存した歩がずれたときに部品の中で見つけられないのも同じです
+（テストは、今の形で再生する側だけ1歩ずらし、例外が出ずに命令の列だけが変わることを示しています）。
+それでも今の形にしたのは、替わったかの判定を1つのクラスに置き、出どころはそれを読むだけにするため
+です。替わる歩を決める側（命令がもう届かないと知る側）は記録だけを持てばよく、出どころがほかの
+出どころに包まれていても、その出どころを持たずに決められます。もう1つは、替わったかを答える
+関数を受け取る形です。一度「替わった」と答えたあとで「替わっていない」と答える関数も渡せるので、
+その扱いを決める必要が出ます。1度しか決められない記録なら、判定は「決めた歩より後か」だけになり、
+一度替わったら元に戻りません。
+
+代わりは、初めて任せる歩で1度だけ作り、それより前には作りません。作り直すと、代わりの出どころが
+覚えている内容（前の歩までの判断）を失います。処理の側が替わる歩でこの出どころに聞かなければ、
+作るのはそれより後の歩になります。作るときに状態を読まない出どころなら、作る歩がずれても
+同じ命令を返します。
+
+部品の中で見つけられる誤りと、見つけられない誤りがあります。
+
+- 2度目の決定は断ります。上書きを受け付けると、先に読んだ側と後で読んだ側で替わる歩が食い違います
+- 前の出どころで答えた歩より前を替わる歩に決めると、次に替わったあとの歩を聞かれたときに止まります。
+  同じ記録を再生する側は、その歩を代わりに任せるので、2つの側がずれるためです。決めた時点では
+  止めません。記録は、どの歩をもう前の出どころで答えたかを知らないためです。前の出どころが命令を
+  返さずに例外を出した歩（届いていない歩を読んだ、など）は、答えた歩に数えません
+- 替わる歩を決め忘れると、届いた範囲を持つ記録（`ArrivalLog`）を読む進める側は、届いていない歩を
+  読んだ所で止まります。ところが、替わる歩を保存し忘れた記録を再生する側は、`CommandLog` が最後の
+  命令を返し続けるので、例外も出ずに別の結果になります。部品の中では見つけられないので、命令の記録と
+  `after` を一緒に保存する約束で防ぎます（テストに、決め忘れたときの2つの側の振る舞いを並べています）
+- 片方の側だけが決める誤り（再生する側に `after` を渡し忘れる）は、保存し忘れと同じ形になり、
+  部品の中では見つけられません。保存した `after` が1歩ずれたときも同じで、例外は出ずに命令の列だけが
+  変わります（テストに、再生する側だけ1歩ずらした場合を置いています）
+
+どちらの部品も animal-bomber から持ってきました。animal-bomber では、同じプレイヤーをキーボードと
+ゲームパッドのどちらでも動かせるように、2つの出どころをボタンごとの OR で合わせています。全部を毎回
+読む理由（打ち切ると、読まれなかった機器が前の状態を覚えたままになる）は、TypeScript 版の
+`CombinedInputSource` の注記にあります。Python 版の `EitherSource` は、ほかのプレイヤーの出どころが
+混ざると作る時点で止めます。全員の出どころから1歩ぶんを集める `InputGatherer` は、出どころの無い
+プレイヤーを何もしない入力で埋めず、どの出どころにも聞く前に止めます。埋めると繋ぎ忘れが黙って
+通るためで、誰も操作していないプレイヤーには、何もしない出どころ（`IdleSource`）を明示して渡します。
+どれもプレイヤーの区別があって初めて書ける検査なので、このリポジトリの `CommandSource` には
+現れません。何もしない出どころも部品にはせず、テストの中で並びに明示して置く見本だけにしています。
+
+途中で替わる出どころは、通信対戦の途中で抜けたプレイヤーを CPU に任せる所から持ってきました。
+animal-bomber は、替わったかの判定を操作の記録の1か所（input_log.py の `InputLog.replaced_at`。
+最後に使う時刻の次から真）に置き、通信で届いた操作を渡す出どころ（confirmed.py の
+`NetworkInputSource`）と、記録を再生する出どころ（`ReplayInputSource`）が同じ判定を読みます。
+通信で進める側（lockstep.py の `LockstepDriver`）も、届いた操作を待つかどうかを同じ判定で決めます。
+替わる時刻は操作の記録の中にあり、記録を文字列にする `InputLog.encode` が操作と一緒に書くので、
+替わる時刻だけを保存し忘れることがありません。このリポジトリは、替わる歩の記録（`Handover`）を
+命令の記録（`CommandLog`・`ArrivalLog`）と別の物にしたので、`after` を一緒に残す約束が要ります。
+代わりは `Replacement` が、初めて任せる時刻に1度だけ作ります。TypeScript 版は、通信で進める側
+（`LockstepDriver`）が、試合に繋いだ出どころを代わりに差し替えます（記録を再生する出どころ
+`ReplayInputSource` は、中で替えます）。Python 版は、どちらの側も出どころの中で替えます。
+このリポジトリは Python 版の形にしました。処理の側に、出どころを差し替える仕組み（TypeScript 版の
+`attach`）が要らないためです。
 
 ### 言語で形が変わったところ
 
@@ -861,6 +944,23 @@ animal-bomber の `ConfirmedInputs` は、通信で届いた命令を1つの記�
 - 届いていない歩を読んだときの例外：Python は `LookupError`（`IndexError` と `KeyError` の親）で、
   負の歩の `ValueError` と型で分かれます。JavaScript の組み込みの例外には、探す物が無いことを表す
   型が無いので、TypeScript 版はどちらも `RangeError` にして、文面で分けています
+- 出どころを組み立てる部品の例外：合わせる出どころが無いときは、Python は `ValueError`、TypeScript は
+  `RangeError` です。TypeScript は、`command.ts` のほかの止め方と、`lib/` の乱数の「空の列からは
+  選べない」に揃えました。替わる歩の2度目の決定は、Python は `ValueError`、TypeScript は `Error` で、
+  Strategy の2度目の登録と同じです。前の出どころで答えた歩より前を替わる歩に決めたと分かったときは、
+  Python は `RuntimeError`、TypeScript は `Error` です。受け取った歩の番号が誤っているのではなく、
+  記録と出どころの食い違いなので、Python は `ValueError` にしていません
+- 合わせる出どころの並びの持ち方：Python は並びを tuple で受けます（list を渡すと型検査が止めます）。
+  tuple は作ったあとで書き換えられません。TypeScript は配列を写して持ちます。渡した配列をあとで
+  空にされても、空の検査をすり抜けません
+- 型引数を書く場面：両方の言語に、状態の型を推し量れない場面があります。TypeScript は、状態を
+  数で表した出どころから状態の型を推し量れません（`Readonly<S>` を数からたどると、数のメソッドを
+  並べた型になります）。関数の引数の位置に書いても、型注釈つきの変数に代入しても同じで、型引数
+  （`new HandoverSource<number, Move>(…)`）を書くと通ります。Python の型検査（mypy）は、状態を
+  何でも受ける出どころ（`ReplaySource`）と、整数の状態を前提にした代わりを `HandoverSource` に渡すと、
+  期待する型が無い所（型注釈の無い変数など）では状態の型を `object` と推し量り、代わりを
+  受け付けません。関数の引数の位置や型注釈つきの変数のように、期待する型がある所なら通ります。
+  型引数（`HandoverSource[int, Move](…)`）を書いても通ります
 
 #### Strategy
 
@@ -936,7 +1036,7 @@ TypeScript 版は Strategy で、動物を足すときに、既存の動物に�
 
 | 型 | TypeScript | Python |
 |---|---|---|
-| Command | [animal-bomber](https://github.com/nakatama225/animal-bomber) の操作の出どころ（[InputSource.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/input/InputSource.ts)）と、操作の記録・再生（[InputLog.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/net/InputLog.ts)）。同じプレイヤーの出どころをいくつか、ボタンごとの OR で1つに合わせる所（[CombinedInputSource.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/platform/CombinedInputSource.ts)）。通信で届いた命令を、出どころとして試合に渡す所（[ConfirmedInputs.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/net/ConfirmedInputs.ts) の `ConfirmedInputs` と `NetworkInputSource`。どこまで届いたかを、記録とは別に持つ。`ConfirmedInputs` は、このリポジトリの `ArrivalLog` の元。`ArrivalLog` は範囲を別に持たず、中の記録が最後に受け付けた歩を使う） | animal-bomber の操作の出どころ（[sources.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/input/sources.py)。何も押さない `IdleSource`、いくつかを合わせる `EitherSource`、全員の出どころから1歩ぶんを集める `InputGatherer` を含む）と、操作の記録・再生（[input_log.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/net/input_log.py)。途中で抜けたプレイヤーを代わりの出どころに任せる `Replacement` を含む）。どこまで届いたかを持つ記録と、通信の出どころ（[confirmed.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/net/confirmed.py)。`ConfirmedInputs` が、このリポジトリの `ArrivalLog` の元） |
+| Command | [animal-bomber](https://github.com/nakatama225/animal-bomber) の操作の出どころ（[InputSource.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/input/InputSource.ts)）と、操作の記録・再生（[InputLog.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/net/InputLog.ts)。替わったかの判定 `replacedAt` と、代わりを初めて任せるときに1度だけ作る `ReplayInputSource` は、このリポジトリの `Handover` と `HandoverSource` の元）。同じプレイヤーの出どころをいくつか、ボタンごとの OR で1つに合わせる所（[CombinedInputSource.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/platform/CombinedInputSource.ts)。このリポジトリの `CombinedSource` の元）。通信で届いた命令を、出どころとして試合に渡す所（[ConfirmedInputs.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/net/ConfirmedInputs.ts) の `ConfirmedInputs` と `NetworkInputSource`。どこまで届いたかを、記録とは別に持つ。`ConfirmedInputs` は、このリポジトリの `ArrivalLog` の元。`ArrivalLog` は範囲を別に持たず、中の記録が最後に受け付けた歩を使う） | animal-bomber の操作の出どころ（[sources.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/input/sources.py)。何も押さない `IdleSource`、いくつかを合わせる `EitherSource`、全員の出どころから1歩ぶんを集める `InputGatherer` を含む。`EitherSource` は、このリポジトリの `CombinedSource` の元。合わせる出どころと集める側の検査のテストは [test_sources.py](https://github.com/nakatama225/animal-bomber/blob/main/py/tests/input/test_sources.py)）と、操作の記録・再生（[input_log.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/net/input_log.py)。途中で抜けたプレイヤーを代わりの出どころに任せる `Replacement` を含む。替わったかの判定 `InputLog.replaced_at` と `Replacement` は、このリポジトリの `Handover` と `HandoverSource` の元）。どこまで届いたかを持つ記録と、通信の出どころ（[confirmed.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/net/confirmed.py)。`ConfirmedInputs` が、このリポジトリの `ArrivalLog` の元） |
 | Strategy | animal-bomber の動物ごとの能力。答え方の型と登録表（[Ability.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/abilities/Ability.ts)）、登録を集める1か所（[registry.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/abilities/registry.ts)）。CPU の戦い方の登録表（[AnimalTactic.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/ai/tactics/AnimalTactic.ts)。登録を集める1か所は [registry.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/ai/tactics/registry.ts)）。戦い方は、登録が無ければ既定の戦い方を返す。このリポジトリの `Registry.get` は既定に丸めずに止まるが、ここは「戦い方を書かなくても戦える」ことを意図した使い方で、動物の名前の誤りは能力の登録表が止める | 登録表は意図して使っていない。同じ問い（動物ごとの能力）に、閉じた種類で答えた。動物の閉じた列挙を `match` で振り分けて、技の関数（[techniques.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/abilities/techniques.py)）と CPU の戦い方（[tactics.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/ai/tactics.py) の `Tactic` と `tactic_of`）を返す。理由は [06-動物の技と閉じた種類.md](https://github.com/nakatama225/animal-bomber/blob/main/py/docs/06-動物の技と閉じた種類.md)。登録表を使わない Strategy の例は、待ち方の関数を引数で渡す所（[loop.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/shell/loop.py) の `frames`）と、通信の手段を引数で渡す所（[data-science-portfolio](https://github.com/nakatama225/data-science-portfolio) の [api.py](https://github.com/nakatama225/data-science-portfolio/blob/main/ibm-capstone-spacex/src/spacex_capstone/collection/api.py) の `JsonFetcher`） |
 | Chain of Responsibility | animal-bomber の CPU の判断。規則の型と先頭から試す関数（[CpuBehavior.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/ai/CpuBehavior.ts)）、規則の並び（[DefaultChain.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/ai/behaviors/DefaultChain.ts)）。以前に試して失敗した規則（袋小路では爆弾を置かずに待つ）を並びに1つ差し込み、爆弾を1個も置かなくなることを見るテスト（[cpu.test.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/tests/ai/cpu.test.ts)） | animal-bomber の CPU の判断。規則の並びと先頭から試す `for` 文（[chain.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/ai/chain.py)）、規則の関数（[behaviors.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/ai/behaviors.py)）。1つの規則の中で、探し方の条件を厳しい順に緩めていく使い方もある（behaviors.py の逃げる規則。燃えかけているマスと踏むと損をするアイテムを避ける → アイテムは踏む → 燃えかけているマスも通る） |
 | State | animal-bomber のプレイヤーの状態。状態の union（[Life.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/state/Life.ts)）と、`never` への代入で扱い忘れを型エラーにする分岐（[WorldState.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/state/WorldState.ts) の `hashLife`）。同じ仕掛けを `assertNever` の形で、イベントの union にも使っている（[SimEvent.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/events/SimEvent.ts)）。ラウンドの判定（[RoundSystem.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/systems/RoundSystem.ts) の `RoundVerdict`）と、通信対戦の局面（[LockstepClient.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/net/LockstepClient.ts) の `LanPhase`）も union で表している。中身を持たない状態の `ALIVE` と `OUT` は、全員で1つの値を使い回し、`Object.freeze` している（[state.ts](typescript/src/patterns/state.ts) の約束の2つ目） | animal-bomber のプレイヤーの状態。状態の union（[player.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/state/player.py) の `Alive`・`Negibon`・`Out` と `Life`）と、`match` と `assert_never` で扱い忘れを型エラーにする分岐（[world.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/state/world.py) の `_hash_life`）。イベントの union（[events.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/events.py) の `SimEvent`。受け取る側は [presenter.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/presentation/presenter.py)）、ラウンドの判定（[round.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/systems/round.py) の `RoundVerdict`）、通信対戦の局面（[client.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/net/client.py) の `LanPhase`）も union で表している。値を返さない `match` の書き忘れも見つけるよう、mypy の `exhaustive-match` を有効にしている（[pyproject.toml](https://github.com/nakatama225/animal-bomber/blob/main/py/pyproject.toml)） |

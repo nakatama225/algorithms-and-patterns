@@ -40,6 +40,11 @@ python/
     patterns/
       test_command_arrival.py    command.py の届いた範囲を持つ記録（ArrivalLog）のテスト。
                                  test_command.py から分けた
+      test_command_sources.py    command_sources.py の出どころを合わせる部品（CombinedSource）のテスト
+      test_command_handover.py   command_sources.py の途中で替わる出どころ（Handover・HandoverSource）の
+                                 テスト。test_command_sources.py から分けた
+      test_command_handover_replay.py  command_sources.py の途中で替わる出どころを、届いた命令で進める側と
+                                       保存したものを再生する側で比べるテスト。test_command_handover.py から分けた
 ```
 
 標準ライブラリだけで書いているので、実行に要る依存はありません。
