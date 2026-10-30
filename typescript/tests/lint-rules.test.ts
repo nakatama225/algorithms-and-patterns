@@ -19,6 +19,8 @@ import { describe, expect, it } from 'vitest';
  * 替えるのは、型の情報を使わないことと、型の情報を要する規則を外すことだけ。
  * ここで確認する層の規則・決定性の規則・method-signature-style・注釈の扱い（reportUnusedDisableDirectives）は、
  * eslint.config.js に書いたものをそのまま読む。
+ * 型の情報を要する規則（switch-exhaustiveness-check）は、この設定では働かない。型の情報を使う設定の
+ * まま、実在するファイルのパスに文字列を渡して見る（中身はディスクから読まず、渡した文字列を検査する）。
  */
 
 /**
@@ -205,6 +207,56 @@ describe('interface の関数の形', () => {
         .filter((message) => message.ruleId === '@typescript-eslint/method-signature-style')
         .map((message) => [message.line, message.severity]);
       expect(found, path).toEqual([[2, 2]]);
+    }
+  });
+});
+
+describe('switch の種類の書き忘れ', () => {
+  const RULE = '@typescript-eslint/switch-exhaustiveness-check';
+
+  it('src と tests の全部に、エラーとして、決めた選択肢で当たる', async () => {
+    // 注釈（tests/patterns/state.test.ts）で分かるのは規則が外れたことだけなので、強さと範囲と
+    // 選択肢は設定を読んで見る。ディスクに無いパスも尋ねられる。初めの3つは実在するファイル。
+    for (const path of [
+      'src/patterns/state.ts',
+      'src/lib/rng.ts',
+      'tests/patterns/state.test.ts',
+      'src/patterns/__probe__.ts',
+      'tests/__probe__.ts',
+    ]) {
+      expect(await ruleAt(path, RULE), path).toEqual([
+        2,
+        {
+          allowDefaultCaseForExhaustiveSwitch: true,
+          considerDefaultExhaustiveForUnions: false,
+          requireDefaultForNonUnion: false,
+        },
+      ]);
+    }
+  });
+
+  /** 種類が2つの union の switch。`case 'a'` の後ろに `rest` を足す。3行目が switch の行。 */
+  function switchOn(rest: string): string {
+    const head = ["type Kind = 'a' | 'b';", 'export function f(kind: Kind): void {', '  switch (kind) {'];
+    return [...head, `    case 'a': break; ${rest}`, '  }', '}', ''].join('\n');
+  }
+
+  const CASES: [string, string, [number, number][]][] = [
+    ['書き忘れ', '', [[3, 2]]],
+    ['書き忘れを default で受ける', 'default: break;', [[3, 2]]],
+    ['すべて書く', "case 'b': break;", []],
+    ['すべて書いて default も置く', "case 'b': break; default: break;", []],
+  ];
+
+  it.each(CASES)('実在するファイルに置いた文字列を、型の情報を使う設定で検査する：%s', async (_kind, rest, expected) => {
+    // ディスクに無いパスでは、規則を当てる前に止まる。止まったせいで指摘が0件になる形を見逃さない
+    // よう、構文解析の失敗（ruleId が null）も数える。
+    for (const path of ['src/patterns/state.ts', 'src/lib/rng.ts', 'tests/patterns/state.test.ts']) {
+      const [result] = await configReader.lintText(switchOn(rest), { filePath: path });
+      const found = result?.messages
+        .filter((message) => message.ruleId === RULE || message.ruleId === null)
+        .map((message) => [message.line, message.severity]);
+      expect(found, path).toEqual(expected);
     }
   });
 });

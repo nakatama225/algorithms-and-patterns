@@ -8,7 +8,9 @@ dependencies = []
 
 [dependency-groups]
 dev = [
-    "mypy>=1.13",
+    # 下の exhaustive-match は 1.17 からある。それより古い mypy はこの名前を知らず、
+    # 設定に書いても1行の警告を出すだけで、検査を切ったまま通る。
+    "mypy>=1.17",
     "pytest>=8.0",
     "ruff>=0.8",
 ]
@@ -36,3 +38,6 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 strict = true
 python_version = "3.11"
 files = ["src", "tests"]
+# 値を返さない match の書き忘れは、strict でも見つからない（既定では切ってある）。
+# case _: の無い match で、扱っていない種類が残っていれば止める（README の State）。
+enable_error_code = ["exhaustive-match"]

@@ -22,8 +22,9 @@ export default tseslint.config(
     // ESLint の既定は警告（warn）で、eslint . は警告だけなら成功で終わるので、
     // 規則が働かなくなって注釈が使われなくなっても気づけない。
     // このリポジトリでは、規則を外す注釈を付けた違反を置き、規則が外れていないことを
-    // lint そのもので確認している（tests/lint-rules.test.ts の MethodShaped）。
-    // 規則の強さと当たる範囲は注釈では分からないので、同じファイルのテストで見る。
+    // lint そのもので確認している（tests/lint-rules.test.ts の MethodShaped と、
+    // tests/patterns/state.test.ts の書き忘れた switch）。
+    // 規則の強さと当たる範囲は注釈では分からないので、tests/lint-rules.test.ts のテストで見る。
     // 型検査の @ts-expect-error（使われないと tsc が失敗する）と同じ働きにする。
     // animal-bomber の設定には無く、このリポジトリで足した仕組み。
     linterOptions: { reportUnusedDisableDirectives: 'error' },
@@ -47,6 +48,26 @@ export default tseslint.config(
       // ならない（README の Command）。クラスの中はメソッドの形のままでよい。
       // animal-bomber の設定から持ってきた規則。
       '@typescript-eslint/method-signature-style': ['error', 'property'],
+      // switch で閉じた union の種類を書き忘れたら止める（README の State）。
+      // 値を返さない関数の switch は、default で assertNever を呼ばない限り、型検査が書き忘れを
+      // 見つけない。型の情報を使う規則で、recommendedTypeChecked には含まれていない。
+      // 選択肢は typescript-eslint 8.70 の既定と同じ値を書いて、版が替わっても変わらないようにしている。
+      // - allowDefaultCaseForExhaustiveSwitch: true … すべての種類を書いたうえで default に
+      //   assertNever を置く形（state.ts の約束1）を止めない
+      // - considerDefaultExhaustiveForUnions: false … default があっても、書いていない種類が
+      //   残っていれば止める。default で残りをまとめて受けると、足した種類も黙ってそこで扱われる
+      // - requireDefaultForNonUnion: false … union でない値（number など）の switch に default を求めない
+      // 規則の強さと当たる範囲と、選択肢どおりに止めることは tests/lint-rules.test.ts で、規則が
+      // 外れていないことは tests/patterns/state.test.ts の注釈でも見る。animal-bomber の設定には無く、
+      // このリポジトリで足した規則。
+      '@typescript-eslint/switch-exhaustiveness-check': [
+        'error',
+        {
+          allowDefaultCaseForExhaustiveSwitch: true,
+          considerDefaultExhaustiveForUnions: false,
+          requireDefaultForNonUnion: false,
+        },
+      ],
     },
   },
 

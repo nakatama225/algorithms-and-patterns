@@ -1,6 +1,6 @@
 # TypeScript 実装
 
-**現在の状態（2026年10月）**：`src/patterns/` に設計の型が4つ、`src/lib/` に共通部品が8つ
+**現在の状態（2026年10月）**：`src/patterns/` に設計の型が5つ、`src/lib/` に共通部品が8つ
 （二分探索と決定的な擬似乱数と状態の要約と固定刻みの時間と、`grid.ts` の格子と幅優先の最短経路と、
 `cascade.ts` の連鎖の一括処理と最も早い時刻と、`strict-read.ts` と `decimal-text.ts` の外から来た値の読み取り）
 あります。固定刻みの時間の待つ部品
@@ -11,7 +11,8 @@ typescript/
   package.json
   tsconfig.json      型検査の設定。実行環境を選ばない部品だけなので、DOM と Node.js の型を入れていない
   eslint.config.js   静的検査の設定。src/lib/ では、src/patterns/ と src/problems/ を読み込むことと、
-                     乱数と時刻を引数で受け取らずに使うこと（Math.random・Date）と for...in も止める
+                     乱数と時刻を引数で受け取らずに使うこと（Math.random・Date）と for...in も止める。
+                     src と tests の全部で、switch の種類の書き忘れも止める
   vitest.config.ts   テストの設定
   src/
     lib/             共通部品
@@ -46,6 +47,8 @@ typescript/
                                 （Handover・HandoverSource）のテスト。command-sources.test.ts から分けた
       command-handover-replay.test.ts  src/patterns/command-sources.ts の途中で替わる出どころを、届いた命令で
                                        進める側と保存したものを再生する側で比べるテスト。command-handover.test.ts から分けた
+      state-traits.test.ts     State で、種類ごとの性質を1つの表にまとめる見本（Record と satisfies）。
+                               state.test.ts から分けた
 ```
 
 置いてある型の一覧と、Python 版との違いは[リポジトリ全体の README](../README.md) にあります。

@@ -4,9 +4,9 @@
 
 アルゴリズムと設計パターンを、再利用できる部品として実装したものです。
 
-**現在の状態（2026年10月）**：設計の型（`patterns/`）を4つ置いています。TypeScript は4つとも
-部品とテストがあります。Python は3つに部品とテストがあり、残る State は標準ライブラリで
-足りるので、書き方の見本をテストに置いています。共通部品（`lib/`）は置き始めたところで、
+**現在の状態（2026年10月）**：設計の型（`patterns/`）を5つ置いています。TypeScript は5つとも
+部品とテストがあります。Python は3つに部品とテストがあり、残る State と単位を型で分ける型は
+標準ライブラリで足りるので、書き方の見本をテストに置いています。共通部品（`lib/`）は置き始めたところで、
 いまは二分探索（TypeScript だけ。Python は標準ライブラリの `bisect` で足ります）と、
 決定的な擬似乱数と、状態の要約と、固定刻みの時間（待つ部品は Python だけ）と、格子と、
 幅優先の最短経路と、連鎖の一括処理（最も早く発火する時刻を求める関数を含みます）と、外から来た値の
@@ -115,8 +115,8 @@ TypeScript 版が出した値を、Python 版のテストに1度貼っただけ�
 
 ### 3. すべての部品にテストを置く
 
-`tests/` は `src/` と同じ構造にします。例外は4つで、Python の State は部品が無いので
-見本だけをテストに置いています。層の向き・決定性を崩す書き方・静的検査の設定を確認するテスト
+`tests/` は `src/` と同じ構造にします。例外は4つで、Python の State と単位を型で分ける型は
+部品が無いので、見本だけをテストに置いています。層の向き・決定性を崩す書き方・静的検査の設定を確認するテスト
 （`test_layers.py`・`test_determinism_guard.py`・`lint-rules.test.ts`）と、2つの言語の固定値の表を突き合わせるテスト
 （`test_cross_language.py`）と、テストが使う偽の物と補助（Python の偽の時計 `fake_time.py`、両方の言語の
 偽の届く関係 `fake_reaches.py`・`fake-reaches.ts`、止めた文の頭を比べる `error_head.py`・`error-head.ts`）は、
@@ -150,6 +150,9 @@ Python は `command_sources.py`）も、合わせる部品のテストと、途�
 届いた命令で進める側と、保存したものを再生する側を比べるテストも、さらに分けています
 （`command-handover-replay.test.ts`、Python は `test_command_handover_replay.py`）。2つの側を揃える使い方
 （命令の記録と替わる歩を一緒に保存する）は、部品の約束とは別の理由で変わります。
+State も、状態の表し方のテストと、種類ごとの性質の表の見本を分けています（`state.test.ts` と
+`state-traits.test.ts`、Python は `test_state.py` と `test_state_traits.py`）。共通の処理が性質だけを見る
+使い方は、状態の表し方の約束とは別の理由で変わります。
 テストは、部品が正しく動くことの確認であると同時に、
 **その部品が何を保証しているのかの記述**でもあります。エッジケース
 （空、1件、重複、境界値、異常値）を通しておくと、読む人は仕様を読み取れます。
@@ -946,7 +949,8 @@ ESLint の2つの規則（[eslint.config.js](https://github.com/nakatama225/anim
 | Command（命令を値として渡す） | 1歩ずつ進む処理と、「その歩で何をするか」を決める側を切り離す。記録と再生が、部品を1つ挟むだけで作れる。遅れて届く命令は、届いた範囲を持つ記録（`ArrivalLog`）で受け取ると、まだ届いていない歩を読んだときに止まる。出どころは、いくつかを合わせる（`CombinedSource`）ことも、途中で代わりに替える（`HandoverSource`）こともでき、どちらも処理の側は変わらない | [command.ts](typescript/src/patterns/command.ts)、[command-sources.ts](typescript/src/patterns/command-sources.ts) | [command.py](python/src/algorithms_and_patterns/patterns/command.py)、[command_sources.py](python/src/algorithms_and_patterns/patterns/command_sources.py) |
 | Strategy（答え方を差し替える）と登録表 | 同じ問いへの答え方を名前で引けるように並べる。答え方を足すときに、使う側と既存の答え方を触らない | [strategy.ts](typescript/src/patterns/strategy.ts) | [strategy.py](python/src/algorithms_and_patterns/patterns/strategy.py) |
 | Chain of Responsibility（規則を優先順に試す） | 1つの長い if の連なりを、独立した規則の並びにする。規則を足す・外す・入れ替えるのが、並びの1行の操作になる | [chain-of-responsibility.ts](typescript/src/patterns/chain-of-responsibility.ts) | [chain_of_responsibility.py](python/src/algorithms_and_patterns/patterns/chain_of_responsibility.py) |
-| State（状態を閉じた union で表す） | 取りうる状態を型で閉じ、状態ごとに持つ値を分ける。状態を足したときの扱い忘れを、型検査が見つける | [state.ts](typescript/src/patterns/state.ts) | 部品は無し（標準ライブラリで足りる）。書き方の見本は [test_state.py](python/tests/patterns/test_state.py) |
+| State（状態を閉じた union で表す） | 取りうる状態を型で閉じ、状態ごとに持つ値を分ける。状態を足したときの扱い忘れを、型検査が見つける。値を返さない分岐の書き忘れも、型検査と静的検査の設定で見つける。種類ごとの性質を1か所にまとめると、共通の処理は種類を見ずに性質だけで書ける | [state.ts](typescript/src/patterns/state.ts)（性質の表の見本は [state-traits.test.ts](typescript/tests/patterns/state-traits.test.ts)） | 部品は無し（標準ライブラリで足りる）。書き方の見本は [test_state.py](python/tests/patterns/test_state.py) と [test_state_traits.py](python/tests/patterns/test_state_traits.py) |
+| 単位を型で分ける（ブランド型） | 実行時は同じ数でも意味の違う値（区間ごとに 0 へ戻る番号と通しの番号、メートルと秒など）を別の型にし、取り違えを型検査に見つけさせる | [brand.ts](typescript/src/patterns/brand.ts) | 部品は無し（`typing.NewType` で足りる）。書き方の見本は [test_brand.py](python/tests/patterns/test_brand.py) |
 
 ### Command の届いた範囲を持つ記録
 
@@ -1058,6 +1062,74 @@ animal-bomber は、替わったかの判定を操作の記録の1か所（input
 `ReplayInputSource` は、中で替えます）。Python 版は、どちらの側も出どころの中で替えます。
 このリポジトリは Python 版の形にしました。処理の側に、出どころを差し替える仕組み（TypeScript 版の
 `attach`）が要らないためです。
+
+### 単位を型で分ける（ブランド型）
+
+区間ごとに 0 へ戻る番号と、始めから通して数える番号は、どちらも整数で、最初の区間の間は値まで
+同じです。片方を受け取る所へもう片方を渡しても型検査は止めず、最初の区間だけを使うテストも
+通ります。違いが出るのは2つ目の区間からです。意味ごとに別の型にしておくと、区間の数によらず、
+取り違えを型検査が止めます。TypeScript は、数に型の上だけの印を付けた型（ブランド型）を
+`Brand<number, 'OverallIndex'>` と書きます。Python は標準ライブラリの `typing.NewType` で足ります。
+どちらも実行時はただの数で、変換の手間はかかりません。
+
+守られるのは片方向だけです。
+
+- 印の付いた値は、ただの数を受け取る所へそのまま渡せます
+- ただの数や別の印の値を、印の付いた値を受け取る所へ渡すと、型検査が止めます
+- 印の付いた値どうしを足すと、ただの数に戻ります。次の番号も、もう一度印を付けて作ります
+- 印を付ける書き方（TypeScript の `as`、Python の `NewType` の呼び出し）は、ただの数ならどれにも使え、
+  型検査を通ります（TypeScript で別の印の値に付けるときは、ただの数を経れば通ります。下の「言語で形が
+  変わったところ」）。区間の中で数えた値に、通しの番号の印を付けても止まりません。この穴は型では
+  塞げないので、印を付ける場所を少なくして防ぎます
+
+animal-bomber では、盤面の時刻（ラウンドごとに 0 へ戻る）と、試合を通して数える時刻が、この関係でした。
+TypeScript 版は、操作の記録と再生に盤面の時刻を使っていたので、2ラウンド目の記録が「tick が戻っている」
+として止まりました。1ラウンド目は2つの時刻が同じ値なので、型でもテストの値でも見つかりませんでした。
+TypeScript 版は、記録と再生に試合の時計（InputLog.ts の `MatchClock`）を渡す形に改め、時刻の型は
+分けていません。Python 版は、最初から2つを別の型（tick.py の `Tick` と `MatchTick`）にしました。
+それでも、盤面の時刻を包む書き方（`MatchTick(world.now)`）は型検査を通ります。そこで、試合を通して
+数える時刻を作ってよい場所を、時計のクラス（`MatchClock`）と、保存した文字列や通信で届いた文字列から
+時刻を読み戻す2か所に限り、ほかで作るとテストが失敗するようにしました（test_match_tick.py が構文木を
+読んで探します）。次の時刻を求める足し算も時計のクラスに置き、作る場所を増やさないようにしています。
+名前を文字列で参照する書き方（`getattr` など）は、このテストでも見つけられません。このリポジトリには
+印の付いた値を作る処理が無いので、この検査は置いていません。
+
+TypeScript の形は、animal-bomber から変えています。animal-bomber は、型ごとに別の項目を持つ形
+（`number & { readonly __tick: unique symbol }`。Tick.ts の `Tick`、EntityId.ts の `EntityId`）で書いています。
+このリポジトリは、印を文字列で渡す総称型（`Brand<T, B>`）を1つ置きました。印を置く項目（`unique symbol`）は
+部品の中に1つだけあり、型ごとには印の文字列を渡すだけで済みます。
+取り違えたときの型エラーに印の文字列がそのまま出ます（`"SectionIndex"` を `"OverallIndex"` の所へ
+渡せない、など）。その代わり、同じ文字列の印を別の名前で2度定義すると、同じ型になって区別できません
+（テストに書いています）。型ごとに別の項目を持つ形なら、同じ名前の項目を書いても別の型になります。
+
+### State で処理の結果を返す：起きたことの列
+
+閉じた union は、状態のほかに、処理の結果にも使えます。1刻みの処理が音・画面・通知を自分で呼ばず、
+起きたこと（置かれた・壊れた・拾われた…）を閉じた union の列にして、起きた順に返します。どう見せるかは、
+受け取った側が決めます。受け取る側は種類ごとの扱いを State と同じ分岐で書くので、種類を足したときの
+扱い忘れを型検査が見つけます。
+
+animal-bomber の原型（ブラウザで動く最初の版）は、盤面を進める処理（`update()`）の中から、
+効果音を 53 か所、画面の書き換えを 17 か所、通知の表示を 17 か所で直接呼んでいたので、画面を描かずに
+ルールだけを動かす方法がありませんでした（TypeScript 版の SimEvent.ts の説明）。animal-bomber は、起きたことを返すだけの形にしました。検証のときは
+受け取らなければよく、音を消す設定もテスト用のモードも要りません。CPU どうしの4体の試合（43,000 刻み）が、
+画面なしで1秒かからずに動きます（TypeScript 版の
+[02-CPUの判断.md](https://github.com/nakatama225/animal-bomber/blob/main/ts/docs/02-CPUの判断.md)）。
+
+列に何を載せるかにも決まりがあります。
+
+- 受け取る頃には状態から分からなくなるものは、載せます。プレイヤーの体力が尽きた知らせ（events.py の
+  `PlayerDown`）は、尽きたときの位置を運びます。同じ刻みのうちに延長戦へ移ると、受け取る頃には
+  開始位置へ移っているためです
+- 見せてはいけないものは、載せません。技の途中で起きたことの知らせ（`TechniqueMoment`）はマスを
+  運びません。掘り終えた穴の位置を描画の側に渡すと、見えないはずの穴が分かってしまうためです
+- 受け取る側が列の中身の有無で判断するなら、意味の違う知らせを同じ列に混ぜません。技の結果
+  （[results.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/abilities/results.py) の
+  `Started`）は、技を出せなかった知らせを、技を出した瞬間に起きたことの列と別の項目に置いています。
+  技を出す処理は、その列に1つでもあれば技が出たとみなすので、混ぜると技を出した音まで鳴ります
+- 状態を丸ごと作り替える処理は、1刻みの処理の中に置きません。ラウンドの判定は、続ける・延長戦に入る・
+  終わるの3つの union（round.py の `RoundVerdict`）を返すだけで、次の盤面は試合を進める側が作ります。
+  1刻みの中で盤面が入れ替わると、「1回呼ぶと1刻み進む」の約束が崩れ、記録の再生が追えなくなります
 
 ### 言語で形が変わったところ
 
@@ -1173,6 +1245,52 @@ animal-bomber は、替わったかの判定を操作の記録の1か所（input
   見分けるのと値を取り出すのを1行で書けます
 - 書き換えの禁止：TypeScript の `readonly` は型検査だけの約束で、実行時には止まりません
   （止めるなら `Object.freeze`）。Python の frozen dataclass は、型検査でも実行時にも止まります
+- 種類ごとの性質の表：TypeScript は、表を `Record<種類, 性質>` に `satisfies` で当てると、表の鍵の集合が
+  union の種類から決まります。種類を1つ書き忘れると `satisfies` を書いた行が、無い種類の名前を書くと
+  その行が、型エラーになります。Python の `dict` の型（`dict[Kind, Traits]`）は、鍵がすべてそろっているかを
+  表さないので、書き忘れても mypy は通ります。そこで Python は、性質を返す関数を `match` と `assert_never` で
+  書きます。列挙を鍵にした `dict` で持つなら、鍵の集合を列挙のすべてと比べるテストを置きます（どちらも
+  `test_state_traits.py` に見本があります）。`TypedDict` なら鍵をすべて書かせられますが、鍵は名前を手で
+  並べるので、種類を足しても鍵は増えず、足した種類の書き忘れは見つかりません。TypeScript で表を
+  `Record` と `satisfies` で書く形は、animal-bomber の TypeScript 版に無く、このリポジトリで足しました
+- 値を返さない分岐の書き忘れ：値を返す関数なら、どちらの言語の型検査も「値を返さずに抜ける道がある」
+  として止めます。値を返さない関数で、最後に `assert_never`・`assertNever` を呼ぶ分岐を書かずにいると、
+  型検査は止めず、扱っていない状態は黙って何もせずに通ります。Python は mypy の `exhaustive-match` を
+  有効にしています（`pyproject.toml`）。`case _:` の無い `match` で、扱っていない種類が残っていれば
+  `match` の行で止めます。strict にも含まれず、既定では切ってあります。`case _:` のある `match` は
+  見ないので、`case _:` で残りをまとめて受けると、足した種類も黙ってそこで扱われます。Python で
+  `case _:` を書くのは、`assert_never` を呼ぶときだけにします。TypeScript は静的検査の
+  `switch-exhaustiveness-check` を `src/` と `tests/` の全部に当てています（`eslint.config.js`）。型の情報を
+  使う規則で、`recommendedTypeChecked` には含まれていません。`default` があっても、書いていない種類が
+  残っていれば止める設定にしました。`default` で残りをまとめて受けると、足した種類も黙ってそこで
+  扱われるためです。どちらも、わざと書き忘れた見本をテスト（`test_state.py`・`state.test.ts`）に置き、
+  注釈（`type: ignore[exhaustive-match]`・`eslint-disable-next-line`）で外しています。設定から外すと
+  注釈が使われなくなり、検査が失敗します。TypeScript の規則の強さと当たる範囲と選択肢の働きは、
+  `lint-rules.test.ts` が見ています。型の情報が要る規則なので、型の情報を使う設定のまま、実在するファイルの
+  パスに書き忘れた `switch` の文字列を渡して、エラーとして止まることを見ます（ディスクに無いパスでは、
+  規則を当てる前に止まります）。この規則は animal-bomber の TypeScript 版の設定に無く、このリポジトリで
+  足しました
+- mypy の版：`exhaustive-match` は mypy 1.17 からあります。それより古い mypy は、設定に書いても1行の
+  警告を出すだけで、検査を切ったまま通ります（animal-bomber の Python 版の `pyproject.toml` の説明。
+  このリポジトリでも 1.16.1 で同じ振る舞いになりました）。このリポジトリの `uv.lock` はもともと 2.3.1 を
+  固定していたので、使う版は変わりませんが、`pyproject.toml` の下限を `>=1.17` と明記しました。
+  古い mypy では、上の見本の `type: ignore[exhaustive-match]` が使われていない注釈として失敗するので、
+  検査が切れたことにも気づけます
+
+#### 単位を型で分ける
+
+- 部品：TypeScript は印を付けた型（`Brand`）を自分で書きます。型だけで、実行時には何も残りません。
+  Python は標準ライブラリの `typing.NewType` で足りるので、`patterns/` にファイルを置かず、書き方の
+  見本をテスト（`python/tests/patterns/test_brand.py`）に置いています
+- 型の見分け方：TypeScript の `Brand` は印の文字列で見分けるので、同じ文字列なら、別の名前で定義しても
+  同じ型になります。mypy は `NewType` を定義した場所で見分けるので、同じ名前でも別のモジュール（や関数の
+  中）に定義すれば、別の型になります
+- 印を付ける書き方の穴の広さ：TypeScript は、別の印の値に `as` でそのまま印を付けると、2つの型が
+  重ならないとして型エラーになります。ただの数（`number`）を経れば通ります。Python の `NewType` は `int`
+  を受け取るので、`int` を元にした別の `NewType` の値にも、そのまま印を付けられます（animal-bomber の
+  `MatchTick(world.now)` はこの形です）
+- 実行時：どちらも実行時はただの数で、印で見分けることはできません。Python の
+  `isinstance(x, OverallIndex)` は実行時に `TypeError` になり、mypy も止めます
 
 ### Strategy と State は逆の性質を持つ
 
@@ -1189,6 +1307,30 @@ TypeScript 版は Strategy で、動物を足すときに、既存の動物に�
 書き忘れは型検査が見つけます。増やしやすさと漏れの無さの交換で、どちらが正しいという
 ことではありません。プレイヤーの状態は、どちらの版も State です。
 
+State の手間（状態を足すたびに、それを扱う分岐のすべてに書き足す）は、種類で振り分ける所を1か所に
+集めると小さくなります。種類ごとの性質（送れるか・受け取るか・後始末が要るか）を1つの表か関数で返し、
+共通の処理はその性質だけを見て、種類を見ません。種類を足すときに書くのは表か関数の1か所で、書き忘れは
+型検査が見つけます（TypeScript は表、Python は関数。上の「言語で形が変わったところ」）。似た性質は、
+1つの真偽値にまとめません。見本の接続の状態では、閉じている途中だけが「送らないが受け取る」状態で、
+送れるかと受け取るかを1つにまとめると、届いたものを捨てるか、閉じている途中に送るかのどちらかになります。
+
+animal-bomber の Python 版は、プレイヤーを一時的に乗っ取る振る舞い（突進・穴掘り・舌）の性質をこの形に
+しました（actions.py の `ActionTraits` と `traits_of`）。原型では突進の判定だけで 11 か所に散っていました。
+いまは移動・爆弾・拾う・被弾の処理が見るのは性質だけです。突進は移動・ブロックの破壊・アイテムの取得・
+被弾の4つに同時に割り込みますが、試合を進める処理に突進という言葉は出てきません。葱（体力が尽きたプレイヤーが
+盤面の外周を回りながら撃つ飛び道具）が当たらないことと、爆風が当たらないことも、別の性質にしています。
+突進は葱だけが当たらないので、1つにまとめると、どちらかの振る舞いが壊れます。
+TypeScript 版は、同じ性質を振る舞いの共通の interface の項目に持たせています（ActiveAction.ts）。
+
+性質は、種類そのものとの比較で決めません。animal-bomber の Python 版は、落とし穴に落ちないかを動物
+そのものとの比較（掘る動物 = もぐら）で決めていました。この比較は `match` と `assert_never` を通らないので、
+6匹目に穴掘りを割り当てると、その動物は自分の穴に落ち、型検査も何も言いません。そこで、技の割り当てから
+決める形に改めました。技のボタンの長押しで出す技（とくぎ）が穴掘りの動物を、掘れる動物とします
+（techniques.py の `digs_pits`）。
+種類の名前との比較は、いまある種類だけを使うテストもすべて通ります。このリポジトリの見本でも、後始末が
+要る接続を「切れた状態でないもの」で選ぶ形に置き換えると、テストは通ります。食い違うのは、性質の違う
+種類を足したときです。
+
 ## 実際に使った例へのリンク
 
 ここに置いた型は、抽象のまま置いておくだけでは「使えるのか」が分かりません。
@@ -1199,16 +1341,15 @@ TypeScript 版は Strategy で、動物を足すときに、既存の動物に�
 | Command | [animal-bomber](https://github.com/nakatama225/animal-bomber) の操作の出どころ（[InputSource.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/input/InputSource.ts)）と、操作の記録・再生（[InputLog.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/net/InputLog.ts)。替わったかの判定 `replacedAt` と、代わりを初めて任せるときに1度だけ作る `ReplayInputSource` は、このリポジトリの `Handover` と `HandoverSource` の元）。同じプレイヤーの出どころをいくつか、ボタンごとの OR で1つに合わせる所（[CombinedInputSource.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/platform/CombinedInputSource.ts)。このリポジトリの `CombinedSource` の元）。通信で届いた命令を、出どころとして試合に渡す所（[ConfirmedInputs.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/net/ConfirmedInputs.ts) の `ConfirmedInputs` と `NetworkInputSource`。どこまで届いたかを、記録とは別に持つ。`ConfirmedInputs` は、このリポジトリの `ArrivalLog` の元。`ArrivalLog` は範囲を別に持たず、中の記録が最後に受け付けた歩を使う） | animal-bomber の操作の出どころ（[sources.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/input/sources.py)。何も押さない `IdleSource`、いくつかを合わせる `EitherSource`、全員の出どころから1歩ぶんを集める `InputGatherer` を含む。`EitherSource` は、このリポジトリの `CombinedSource` の元。合わせる出どころと集める側の検査のテストは [test_sources.py](https://github.com/nakatama225/animal-bomber/blob/main/py/tests/input/test_sources.py)）と、操作の記録・再生（[input_log.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/net/input_log.py)。途中で抜けたプレイヤーを代わりの出どころに任せる `Replacement` を含む。替わったかの判定 `InputLog.replaced_at` と `Replacement` は、このリポジトリの `Handover` と `HandoverSource` の元）。どこまで届いたかを持つ記録と、通信の出どころ（[confirmed.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/net/confirmed.py)。`ConfirmedInputs` が、このリポジトリの `ArrivalLog` の元） |
 | Strategy | animal-bomber の動物ごとの能力。答え方の型と登録表（[Ability.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/abilities/Ability.ts)）、登録を集める1か所（[registry.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/abilities/registry.ts)）。CPU の戦い方の登録表（[AnimalTactic.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/ai/tactics/AnimalTactic.ts)。登録を集める1か所は [registry.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/ai/tactics/registry.ts)）。戦い方は、登録が無ければ既定の戦い方を返す。このリポジトリの `Registry.get` は既定に丸めずに止まるが、ここは「戦い方を書かなくても戦える」ことを意図した使い方で、動物の名前の誤りは能力の登録表が止める | 登録表は意図して使っていない。同じ問い（動物ごとの能力）に、閉じた種類で答えた。動物の閉じた列挙を `match` で振り分けて、技の関数（[techniques.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/abilities/techniques.py)）と CPU の戦い方（[tactics.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/ai/tactics.py) の `Tactic` と `tactic_of`）を返す。理由は [06-動物の技と閉じた種類.md](https://github.com/nakatama225/animal-bomber/blob/main/py/docs/06-動物の技と閉じた種類.md)。登録表を使わない Strategy の例は、待ち方の関数を引数で渡す所（[loop.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/shell/loop.py) の `frames`）と、通信の手段を引数で渡す所（[data-science-portfolio](https://github.com/nakatama225/data-science-portfolio) の [api.py](https://github.com/nakatama225/data-science-portfolio/blob/main/ibm-capstone-spacex/src/spacex_capstone/collection/api.py) の `JsonFetcher`） |
 | Chain of Responsibility | animal-bomber の CPU の判断。規則の型と先頭から試す関数（[CpuBehavior.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/ai/CpuBehavior.ts)）、規則の並び（[DefaultChain.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/ai/behaviors/DefaultChain.ts)）。以前に試して失敗した規則（袋小路では爆弾を置かずに待つ）を並びに1つ差し込み、爆弾を1個も置かなくなることを見るテスト（[cpu.test.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/tests/ai/cpu.test.ts)） | animal-bomber の CPU の判断。規則の並びと先頭から試す `for` 文（[chain.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/ai/chain.py)）、規則の関数（[behaviors.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/ai/behaviors.py)）。1つの規則の中で、探し方の条件を厳しい順に緩めていく使い方もある（behaviors.py の逃げる規則。燃えかけているマスと踏むと損をするアイテムを避ける → アイテムは踏む → 燃えかけているマスも通る） |
-| State | animal-bomber のプレイヤーの状態。状態の union（[Life.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/state/Life.ts)）と、`never` への代入で扱い忘れを型エラーにする分岐（[WorldState.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/state/WorldState.ts) の `hashLife`）。同じ仕掛けを `assertNever` の形で、イベントの union にも使っている（[SimEvent.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/events/SimEvent.ts)）。ラウンドの判定（[RoundSystem.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/systems/RoundSystem.ts) の `RoundVerdict`）と、通信対戦の局面（[LockstepClient.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/net/LockstepClient.ts) の `LanPhase`）も union で表している。中身を持たない状態の `ALIVE` と `OUT` は、全員で1つの値を使い回し、`Object.freeze` している（[state.ts](typescript/src/patterns/state.ts) の約束の2つ目） | animal-bomber のプレイヤーの状態。状態の union（[player.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/state/player.py) の `Alive`・`Negibon`・`Out` と `Life`）と、`match` と `assert_never` で扱い忘れを型エラーにする分岐（[world.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/state/world.py) の `_hash_life`）。イベントの union（[events.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/events.py) の `SimEvent`。受け取る側は [presenter.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/presentation/presenter.py)）、ラウンドの判定（[round.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/systems/round.py) の `RoundVerdict`）、通信対戦の局面（[client.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/net/client.py) の `LanPhase`）も union で表している。値を返さない `match` の書き忘れも見つけるよう、mypy の `exhaustive-match` を有効にしている（[pyproject.toml](https://github.com/nakatama225/animal-bomber/blob/main/py/pyproject.toml)） |
+| State | animal-bomber のプレイヤーの状態。状態の union（[Life.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/state/Life.ts)）と、`never` への代入で扱い忘れを型エラーにする分岐（[WorldState.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/state/WorldState.ts) の `hashLife`）。同じ仕掛けを `assertNever` の形で、イベントの union にも使っている（[SimEvent.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/events/SimEvent.ts)）。ラウンドの判定（[RoundSystem.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/systems/RoundSystem.ts) の `RoundVerdict`）と、通信対戦の局面（[LockstepClient.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/net/LockstepClient.ts) の `LanPhase`）も union で表している。中身を持たない状態の `ALIVE` と `OUT` は、全員で1つの値を使い回し、`Object.freeze` している（[state.ts](typescript/src/patterns/state.ts) の約束の2つ目）。プレイヤーを一時的に乗っ取る振る舞いは、移動や被弾の処理が見る性質を、共通の interface の項目に持たせている（[ActiveAction.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/abilities/ActiveAction.ts)） | animal-bomber のプレイヤーの状態。状態の union（[player.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/state/player.py) の `Alive`・`Negibon`・`Out` と `Life`）と、`match` と `assert_never` で扱い忘れを型エラーにする分岐（[world.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/state/world.py) の `_hash_life`）。イベントの union（[events.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/events.py) の `SimEvent`。受け取る側は [presenter.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/presentation/presenter.py)）、ラウンドの判定（[round.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/systems/round.py) の `RoundVerdict`）、通信対戦の局面（[client.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/net/client.py) の `LanPhase`）も union で表している。値を返さない `match` の書き忘れも見つけるよう、mypy の `exhaustive-match` を有効にしている（[pyproject.toml](https://github.com/nakatama225/animal-bomber/blob/main/py/pyproject.toml)）。プレイヤーを一時的に乗っ取る振る舞いの種類ごとの性質を、`match` と `assert_never` で1か所から返す（[actions.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/state/actions.py) の `ActionTraits` と `traits_of`。このリポジトリの性質の表の見本の元） |
+| 単位を型で分ける | animal-bomber の時刻と識別子。数に印を付けた型（[Tick.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/core/Tick.ts) の `Tick`、[EntityId.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/core/EntityId.ts) の `EntityId`）。試合を通して数える時刻には型を分けず、操作の記録と再生に試合の時計（InputLog.ts の `MatchClock`）を渡している | animal-bomber の時刻と識別子。盤面の時刻と、試合を通して数える時刻（[tick.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/core/tick.py) の `Tick` と `MatchTick`、`MatchTick` の値を作る時計 `MatchClock`）、盤面の物の識別子（[entity_id.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/core/entity_id.py) の `EntityId`）。`MatchTick` の値を作ってよい場所を構文木で限るテスト（[test_match_tick.py](https://github.com/nakatama225/animal-bomber/blob/main/py/tests/boundary/test_match_tick.py)。許す場所がいまも使われていることも見る） |
 
 ここに置いた形は、使った先の形をそのまま写したものではありません。使ってみて分かった
 直しを入れてあります。たとえば Command は、歩の番号を処理の側が数えて渡す形にしました。
 animal-bomber では最初、状態の中の時刻で代用していて、状態を作り直すと 0 に戻るため、
 記録と再生の番号がずれることが後から分かりました。いまは試合を通して数える時刻で記録しています。
-Python 版は、盤面の時刻と試合を通して数える時刻を別の型にして、取り違えると型検査が失敗するようにしました。
-ただし、盤面の時刻を包み直す書き方（`MatchTick(world.now)`）は型検査を通ります。そこで、
-その型の値を作ってよい場所を構文木で限るテストも置いています（[tick.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/core/tick.py) の
-`MatchTick` と `MatchClock`、[test_match_tick.py](https://github.com/nakatama225/animal-bomber/blob/main/py/tests/boundary/test_match_tick.py)）。
+Python 版が2つの時刻を別の型に分け、取り違えを型検査に見つけさせた話は、
+上の「単位を型で分ける（ブランド型）」に書いています。
 同じ歩を2度記録したときの扱いは違います。このリポジトリの `CommandLog` は2度目を断りますが、
 animal-bomber の記録（`InputLog`）は同じ時刻の2度目を受け付けて、あとの値を使います。
 

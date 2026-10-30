@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { assertNever } from '../../src/patterns/state.js';
 
+/*
+ * src/patterns/state.ts の約束と、扱い忘れを見つける検査のテスト。
+ * 種類ごとの性質を表にまとめ、共通の処理が性質だけを見る使い方は state-traits.test.ts が見る。
+ * 変わる理由が違うので、ファイルを分けた。
+ */
+
 /** 確かめるための状態。接続の状態を、状態ごとに持つ値を分けて表す。 */
 interface Idle {
   readonly kind: 'idle';
@@ -46,7 +52,11 @@ describe('状態を閉じた union で表す', () => {
     // この型の目的そのもの。`closed` の分岐を書き忘れると、`state` が `never` にならず、
     // assertNever を呼ぶ行が型エラーになる。型エラーにならなければ、`@ts-expect-error` が
     // 使われていないとして型検査が落ちる。
+    // 静的検査の switch-exhaustiveness-check も、default があっても同じ書き忘れを止める
+    // （規則の選択肢は eslint.config.js）。その指摘は、下の注釈で外す。default がある書き忘れを
+    // 止めない選択肢に替えると、この注釈が何も外さなくなり、npm run lint が失敗する。
     function forgetful(state: Connection): string {
+      // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check -- closed を扱っていない
       switch (state.kind) {
         case 'idle':
           return '待機中';
@@ -58,6 +68,29 @@ describe('状態を閉じた union で表す', () => {
       }
     }
     expect(forgetful(IDLE)).toBe('待機中');
+  });
+
+  it('値を返さない switch の書き忘れは、静的検査が止める', () => {
+    // 値を返す関数なら、型検査は「値を返さずに抜ける道がある」として止める。値を返さない関数で
+    // default の assertNever も書かないと、扱っていない状態が残っても型検査は止めず、その状態は
+    // 黙って何もせずに通る。そこで、静的検査の switch-exhaustiveness-check（eslint.config.js）を
+    // 当てている。下の注釈はその指摘を外す。規則が外れると注釈が何も外さなくなり、npm run lint が
+    // 失敗する。規則の強さと当たる範囲は、lint-rules.test.ts で見る。
+    const seen: string[] = [];
+    function record(state: Connection): void {
+      // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check -- closed を扱っていない
+      switch (state.kind) {
+        case 'idle':
+          seen.push('待機中');
+          break;
+        case 'connecting':
+          seen.push(`接続中（${state.attempt} 回目）`);
+          break;
+      }
+    }
+    record(IDLE);
+    record({ kind: 'closed', reason: '時間切れ' });
+    expect(seen).toEqual(['待機中']);
   });
 
   it('その状態でだけ意味を持つ値は、見分ける前には読めない', () => {

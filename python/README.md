@@ -1,8 +1,9 @@
 # Python 実装
 
 **現在の状態（2026年10月）**：`src/algorithms_and_patterns/patterns/` に設計の型が3つあります。
-4つ目の State は標準ライブラリ（`typing.assert_never` と `match`）で足りるので、部品を置かず、
-書き方の見本を `tests/patterns/test_state.py` に置いています。`lib/`（共通部品）には
+残る2つの State と単位を型で分ける型は、標準ライブラリ（`typing.assert_never` と `match`、
+`typing.NewType`）で足りるので、部品を置かず、書き方の見本を `tests/patterns/test_state.py`・
+`test_state_traits.py`・`test_brand.py` に置いています。`lib/`（共通部品）には
 決定的な擬似乱数（`rng.py`）と、状態の要約（`state_hash.py`）と、固定刻みの時間（`fixed_step.py`）と、
 格子と幅優先の最短経路（`grid.py`）と、連鎖の一括処理と最も早い時刻（`cascade.py`）と、外から来た値の
 読み取り（`strict_read.py` と、10 進の整数を書いた文字列を読む `decimal_text.py`）があります。
@@ -19,7 +20,7 @@ python/
                      import したときに型検査が型注釈を読まない
       lib/           共通部品。patterns/ と problems/ を読み込まない
       patterns/      設計の型（抽象定義）
-  tests/             src と同じ構造。State だけは部品が無く、書き方の見本をテストに置いている
+  tests/             src と同じ構造。State と単位を型で分ける型は部品が無く、書き方の見本をテストに置いている
     test_layers.py   lib/ が patterns/ と problems/ を読み込んでいないことの検査。src には対応しない
     lib/
       test_rng_derive_seed.py  rng.py の種を導く関数（derive_seed）のテスト。test_rng.py から分けた
@@ -51,6 +52,9 @@ python/
                                  テスト。test_command_sources.py から分けた
       test_command_handover_replay.py  command_sources.py の途中で替わる出どころを、届いた命令で進める側と
                                        保存したものを再生する側で比べるテスト。test_command_handover.py から分けた
+      test_state.py              State の書き方の見本と、扱い忘れを見つける検査。src には対応しない
+      test_state_traits.py       State で、種類ごとの性質を1つの関数にまとめる見本。test_state.py から分けた
+      test_brand.py              単位を型で分ける型（typing.NewType）の書き方の見本。src には対応しない
 ```
 
 標準ライブラリだけで書いているので、実行に要る依存はありません。
@@ -64,7 +68,7 @@ python/
 uv sync --frozen
 uv run ruff check .          # 静的検査
 uv run ruff format --check . # 書式
-uv run mypy                  # 型検査（--strict 相当）
+uv run mypy                  # 型検査（--strict 相当に exhaustive-match を足したもの）
 uv run pytest                # テスト
 ```
 

@@ -11,6 +11,9 @@
 2. 状態の型は、それらの union（``Idle | Connecting | Closed``）にする
 3. 分岐は ``match`` で書き、最後の ``case _:`` で ``assert_never`` を呼ぶ。
    扱っていない状態が残っていれば、mypy が ``assert_never`` を呼ぶ行で止める
+
+種類ごとの性質を1つの関数にまとめ、共通の処理が性質だけを見る使い方は
+``test_state_traits.py`` が見る。変わる理由が違うので、ファイルを分けた。
 """
 
 from dataclasses import FrozenInstanceError, dataclass, replace
@@ -81,6 +84,29 @@ def test_状態を1つ扱い忘れると_型検査が止める() -> None:
                 assert_never(state)  # type: ignore[arg-type]
 
     assert forgetful(Idle()) == "待機中"
+
+
+def test_値を返さないmatchの書き忘れも_型検査が止める() -> None:
+    """``case _:`` を書かない ``match`` には、``assert_never`` を呼ぶ行が無い。
+
+    値を返す関数なら、mypy は「値を返さずに抜ける道がある」として止める。値を返さない
+    関数では止める所が無く、strict でも通り、扱っていない状態は黙って何もせずに通る。
+    そこで ``pyproject.toml`` で ``exhaustive-match`` を有効にしている。mypy は
+    ``match`` の行で止めるので、下の ``type: ignore`` はそのために要る。設定から外すと、
+    使われていない ``type: ignore`` として mypy --strict が失敗する。
+    """
+    seen: list[str] = []
+
+    def record(state: Connection) -> None:
+        match state:  # type: ignore[exhaustive-match]
+            case Idle():
+                seen.append("待機中")
+            case Connecting(attempt=attempt):
+                seen.append(f"接続中（{attempt} 回目）")
+
+    record(Idle())
+    record(Closed(reason="時間切れ"))
+    assert seen == ["待機中"]
 
 
 def test_型をすり抜けた値が届いたら_止まる() -> None:

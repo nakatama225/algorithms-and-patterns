@@ -52,11 +52,15 @@ TypeScript のテストで `// 言語をまたぐ固定値` の注釈に囲ま�
   `tests/test_layers.py` と `tests/lib/test_determinism_guard.py` の既知のファイル、
   `tests/lint-rules.test.ts` の実在するファイル。探す場所を誤ったまま何も読まずに通ることを、
   この一覧で防いでいる
-- **`tests/lint-rules.test.ts` の規則を外す注釈（`eslint-disable-next-line`）は消さない。**
+- **`tests/lint-rules.test.ts` と `tests/patterns/state.test.ts` の規則を外す注釈（`eslint-disable-next-line`）は消さない。**
   静的検査の規則が働いていることを、わざと置いた違反で確認している。注釈が何も外さなくなると
   静的検査が失敗する設定（`reportUnusedDisableDirectives`）なので、そこで失敗したら、
   注釈ではなく規則の設定のほうを疑う。注釈で分かるのは規則が外れたことだけなので、
-  規則の強さ（エラー）と当たる範囲（`src/`）は、同じファイルのテストで確認している
+  規則の強さ（エラー）と当たる範囲（`method-signature-style` は `src/`、`switch-exhaustiveness-check` は
+  `src/` と `tests/`）は、`tests/lint-rules.test.ts` で確認している。
+  Python のテストに置いた `type: ignore[...]` も同じ働きで、mypy の設定（`exhaustive-match` など）が
+  外れると、使われていない注釈として mypy が失敗する。これは strict に含まれる `warn_unused_ignores` に
+  よる。strict を外すと、注釈が使われなくなっても mypy は止めず、それを見る検査は置いていない
 - **同じ処理を2つ目の `problems/` で書いたら、`lib/` へ引き上げる。**
   3回待たない。2回目が共通化の合図
 - **`patterns/` には抽象の定義だけを置く。** 具体的な問題の事情を入れない。
@@ -64,9 +68,9 @@ TypeScript のテストで `// 言語をまたぐ固定値` の注釈に囲ま�
 - **1つの型や共通部品を追加したら、両方の言語に置く。** 片方だけにしない。
   片方で不自然になる場合は、**不自然になったこと自体を README に書く**
   （それがこのリポジトリで示したいことなので、無理に揃えない）
-- **Python に State と二分探索の部品が無いのは意図どおり。** 標準ライブラリで足りるので、
-  言語を揃えるためだけに、`typing.assert_never` や `bisect` を読み込んで出し直すだけの
-  モジュールを作らない（README「置いてある共通部品」「言語で形が変わったところ」）
+- **Python に State・単位を型で分ける型・二分探索の部品が無いのは意図どおり。** 標準ライブラリで
+  足りるので、言語を揃えるためだけに、`typing.assert_never`・`typing.NewType`・`bisect` を読み込んで
+  出し直すだけのモジュールを作らない（README「置いてある共通部品」「言語で形が変わったところ」）
 - **TypeScript に固定刻みの時間の待つ部品（`sleep_until`・`frames`）が無いのも意図どおり。**
   ブラウザでは描く時刻をブラウザが決め、型の設定（ES2022 だけ）には時計も待つ関数も無いので、
   言語を揃えるためだけに置かない（README「固定刻みの時間」）
