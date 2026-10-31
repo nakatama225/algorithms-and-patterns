@@ -12,7 +12,7 @@ import {
  * ファイルを分けた。
  */
 
-/** 確かめるための小さな処理。数直線の上の位置を、命令のぶんだけ動かす。 */
+/** 検査に使う小さな処理。数直線の上の位置を、命令のぶんだけ動かす。 */
 type Move = -1 | 0 | 1;
 interface Point {
   readonly position: number;
@@ -87,7 +87,7 @@ describe('CommandLog', () => {
     expect(log.entries()).toEqual([]);
   });
 
-  it('何度も変わった記録から、それぞれの歩の命令を引ける', () => {
+  it('何度も変わった記録から、それぞれの歩の命令を取り出せる', () => {
     const log = new CommandLog<Move>(0);
     const script: Move[] = [1, 1, 0, -1, -1, -1, 1, 0, 0, 1];
     script.forEach((move, step) => log.record(step, move));
@@ -164,7 +164,7 @@ describe('CommandLog', () => {
 });
 
 describe('RecordingSource と ReplaySource', () => {
-  it('記録しながら流した命令を再生すると、同じ結果になる', () => {
+  it('記録しながら実行した命令を再生すると、同じ結果になる', () => {
     // この型の目的そのもの。状態を見て命令を決める出どころでも、再生で同じになる。
     const log = new CommandLog<Move>(0);
     const recorded = run(new RecordingSource(new BackAndForth(), log), 50);
@@ -190,8 +190,8 @@ describe('RecordingSource と ReplaySource', () => {
     expect(replayed).toEqual(seen);
   });
 
-  it('再生は歩の番号で命令を引く。呼ばれた順番には頼らない', () => {
-    // 呼ばれた回数を自分で数えて引く作りだと、途中から再生したり、同じ歩を
+  it('再生は歩の番号で命令を取り出す。呼ばれた順番には頼らない', () => {
+    // 呼ばれた回数を自分で数えて取り出す作りだと、途中から再生したり、同じ歩を
     // 読み直したりしたときに別の命令を返す。
     const log = new CommandLog<Move>(0);
     log.record(3, 1);
@@ -233,7 +233,7 @@ describe('RecordingSource と ReplaySource', () => {
   });
 
   it('記録した歩数より長く再生すると、最後の命令が続く', () => {
-    // 再生を記録より長く回したときの振る舞いを、黙って決めないために書いておく。
+    // 再生を記録より長く続けたときの振る舞いを、黙って決めないために書いておく。
     const log = new CommandLog<Move>(0);
     const recorded = run(new RecordingSource(new BackAndForth(), log), 10);
     const last = log.at(9);
@@ -242,9 +242,9 @@ describe('RecordingSource と ReplaySource', () => {
   });
 
   it('より多くを知っている状態を前提にした出どころは、型検査で渡せない', () => {
-    // 状態の型の向きを型検査が見ていることを確かめる。`commandAt` をメソッドの形で
+    // 状態の型の向きを型検査が見ていることを確認する。`commandAt` をメソッドの形で
     // 宣言すると向きを見なくなり、下の行が型エラーにならず、`@ts-expect-error` が
-    // 使われていないとして型検査が落ちる。
+    // 使われていないとして型検査が失敗する。
     interface Labeled extends Point {
       readonly label: string;
     }

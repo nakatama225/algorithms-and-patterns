@@ -904,7 +904,7 @@ animal-bomber から持ってきたものと、変えた点は次のとおりで
 言語で形が変わったところは4つです。
 
 - 押し始めの求め方：Python は `frozenset` の差（`now - previous`）の1行です。TypeScript の `Set` にも差
-  （`difference`）はありますが、ES2025 で入ったもので、このリポジトリの型の設定（ES2022 だけ）には無く、
+  （`difference`）はありますが、ES2025 で加わったもので、このリポジトリの型の設定（ES2022 だけ）には無く、
   型検査が止めます（実行する Node.js 26 には有ります）。そのため、繰り返しで求めます
 - 鍵の型：Python は hash できる値なら何でもよく（文字列・数・Enum・tuple）、型変数の上限を `Hashable` に
   しています。TypeScript は文字列か数に限ります（`K extends string | number`）。`Set` はオブジェクトの鍵を、
@@ -1390,7 +1390,7 @@ ESLint の2つの規則（[eslint.config.js](https://github.com/nakatama225/anim
 | 型 | 何を解くか | TypeScript | Python |
 |---|---|---|---|
 | Command（命令を値として渡す） | 1歩ずつ進む処理と、「その歩で何をするか」を決める側を切り離す。記録と再生が、部品を1つ挟むだけで作れる。遅れて届く命令は、届いた範囲を持つ記録（`ArrivalLog`）で受け取ると、まだ届いていない歩を読んだときに止まる。出どころは、いくつかを合わせる（`CombinedSource`）ことも、途中で代わりに替える（`HandoverSource`）こともでき、どちらも処理の側は変わらない | [command.ts](typescript/src/patterns/command.ts)、[command-sources.ts](typescript/src/patterns/command-sources.ts) | [command.py](python/src/algorithms_and_patterns/patterns/command.py)、[command_sources.py](python/src/algorithms_and_patterns/patterns/command_sources.py) |
-| Strategy（答え方を差し替える）と登録表 | 同じ問いへの答え方を名前で引けるように並べる。答え方を足すときに、使う側と既存の答え方を触らない | [strategy.ts](typescript/src/patterns/strategy.ts) | [strategy.py](python/src/algorithms_and_patterns/patterns/strategy.py) |
+| Strategy（答え方を差し替える）と登録表 | 同じ問いへの答え方を、名前で取り出せるように並べる。答え方を足すときに、使う側と既存の答え方を触らない | [strategy.ts](typescript/src/patterns/strategy.ts) | [strategy.py](python/src/algorithms_and_patterns/patterns/strategy.py) |
 | Chain of Responsibility（規則を優先順に試す） | 1つの長い if の連なりを、独立した規則の並びにする。規則を足す・外す・入れ替えるのが、並びの1行の操作になる | [chain-of-responsibility.ts](typescript/src/patterns/chain-of-responsibility.ts) | [chain_of_responsibility.py](python/src/algorithms_and_patterns/patterns/chain_of_responsibility.py) |
 | State（状態を閉じた union で表す） | 取りうる状態を型で閉じ、状態ごとに持つ値を分ける。状態を足したときの扱い忘れを、型検査が見つける。値を返さない分岐の書き忘れも、型検査と静的検査の設定で見つける。種類ごとの性質を1か所にまとめると、共通の処理は種類を見ずに性質だけで書ける | [state.ts](typescript/src/patterns/state.ts)（性質の表の見本は [state-traits.test.ts](typescript/tests/patterns/state-traits.test.ts)） | 部品は無し（標準ライブラリで足りる）。書き方の見本は [test_state.py](python/tests/patterns/test_state.py) と [test_state_traits.py](python/tests/patterns/test_state_traits.py) |
 | 単位を型で分ける（ブランド型） | 実行時は同じ数でも意味の違う値（区間ごとに 0 へ戻る番号と通しの番号、メートルと秒など）を別の型にし、取り違えを型検査に見つけさせる | [brand.ts](typescript/src/patterns/brand.ts) | 部品は無し（`typing.NewType` で足りる）。書き方の見本は [test_brand.py](python/tests/patterns/test_brand.py) |
@@ -1704,8 +1704,8 @@ animal-bomber から変えた点が4つあります。
   オブジェクトどうしなら「同じものか」を比べる）。Python は比べ方を命令のクラスの側
   （`__eq__`）が決めるので、引数を設けていません。dataclass は項目ごとに比べる `__eq__` を
   作ります。`__eq__` を持たない普通のクラスは「同じものか」で比べます
-- 歩の番号の確かめ方：TypeScript の `number` は整数と小数を区別しないので、
-  整数かどうかを実行時に確かめます。Python は `int` があるので、型検査に任せます
+- 歩の番号の検査：TypeScript の `number` は整数と小数を区別しないので、
+  整数かどうかを実行時に検査します。Python は `int` があるので、型検査に任せます
 - 記録の探索：Python は標準の `bisect`、TypeScript は `lib/` の二分探索（`bisectRight`）を使います
 - 記録を読む口（`CommandLookup`）：`ReplaySource` は、歩の番号から命令を返す `at` を持つものを
   受け取ります。Python は `Protocol`、TypeScript は関数を持つ項目の interface で書いています。
@@ -1856,8 +1856,8 @@ animal-bomber から変えた点が4つあります。
 ### Strategy と State は逆の性質を持つ
 
 Strategy は、答え方を後から足せる代わりに、どんな答え方があるかが型に現れません。
-名前の書き間違いは、引くまで分かりません。State は、取りうる状態を型で閉じる代わりに、
-状態を足すたびに、それを扱う分岐をすべて直します。直し忘れは型検査が見つけます。
+名前の書き間違いは、その名前で取り出すまで分かりません。State は、取りうる状態を型で閉じる代わりに、
+状態を足すたびに、それを扱う分岐をすべて書き足します。書き足し忘れは型検査が見つけます。
 
 どちらを選ぶかは、種類が後から増えていくのか（Strategy）、種類ごとの扱いを1つも
 漏らせないのか（State）で決めます。
@@ -1907,7 +1907,7 @@ TypeScript 版は、同じ性質を振る舞いの共通の interface の項目�
 | 二段の更新 | animal-bomber の盤面に出て自分の規則で動き続けるもの（落とし穴・追いかける炎・跳ねる爆弾など）を進める所（[ActorSystem.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/systems/ActorSystem.ts) の `#advance`。呼び出しは `step` と `stepOwnedBy`）。進める番と、新しく出たものから進めるかの性質（[WorldActor.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/abilities/WorldActor.ts) の `turn` と `newestFirst`）。偽の盤面の物で、進める順と `settle` を呼ぶ順だけを見るテスト（[tick-order.test.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/tests/systems/tick-order.test.ts)） | animal-bomber の同じ所（[actors.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/systems/actors.py) の `_advance`。呼び出しは `step_actors` と `step_owned_actors`）。進める番と、新しく出たものから進めるかの性質（[state/actors.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/state/actors.py) の `actor_turn` と `newest_first`）。進め方と `settle` を偽物に差し替え、順だけを見るテスト（[test_tick_order.py](https://github.com/nakatama225/animal-bomber/blob/main/py/tests/systems/test_tick_order.py)） |
 
 ここに置いた形は、使った先の形をそのまま写したものではありません。使ってみて分かった
-直しを入れてあります。たとえば Command は、歩の番号を処理の側が数えて渡す形にしました。
+ことを反映して、手を加えてあります。たとえば Command は、歩の番号を処理の側が数えて渡す形にしました。
 animal-bomber では最初、状態の中の時刻で代用していて、状態を作り直すと 0 に戻るため、
 記録と再生の番号がずれることが後から分かりました。いまは試合を通して数える時刻で記録しています。
 Python 版が2つの時刻を別の型に分け、取り違えを型検査に見つけさせた話は、

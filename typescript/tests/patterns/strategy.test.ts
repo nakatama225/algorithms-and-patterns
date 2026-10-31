@@ -1,21 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { Registry } from '../../src/patterns/strategy.js';
 
-/** 確かめるための答え方。文字列の整形の仕方を差し替える。 */
+/** 検査に使う答え方。文字列の整形の仕方を差し替える。 */
 type Formatter = (text: string) => string;
 
 const upper: Formatter = (text) => text.toUpperCase();
 const lower: Formatter = (text) => text.toLowerCase();
 
 describe('Registry', () => {
-  it('何も登録していなければ、名前の一覧は空で、引くと止まる', () => {
+  it('何も登録していなければ、名前の一覧は空で、取り出すと止まる', () => {
     const formatters = new Registry<Formatter>('整形の方法');
     expect(formatters.keys()).toEqual([]);
     expect(formatters.has('upper')).toBe(false);
     expect(() => formatters.get('upper')).toThrow('整形の方法「upper」は登録されていない');
   });
 
-  it('登録した答え方を、名前で引いて使える', () => {
+  it('登録した答え方を、名前で取り出して使える', () => {
     const formatters = new Registry<Formatter>('整形の方法');
     formatters.add('upper', upper);
     expect(formatters.has('upper')).toBe(true);
@@ -40,7 +40,7 @@ describe('Registry', () => {
   });
 
   it('大文字と小文字が違えば、別の名前として扱う', () => {
-    // 名前を黙って揃えない。揃えるなら、使う側が揃えてから引く。
+    // 名前を黙って揃えない。揃えるなら、使う側が揃えてから取り出す。
     const formatters = new Registry<Formatter>('整形の方法');
     formatters.add('upper', upper);
     formatters.add('Upper', lower);
@@ -48,7 +48,7 @@ describe('Registry', () => {
     expect(() => formatters.get('UPPER')).toThrow();
   });
 
-  it('答え方が 0 や空文字や undefined でも、登録されていれば引ける', () => {
+  it('答え方が 0 や空文字や undefined でも、登録されていれば取り出せる', () => {
     // 値が偽とみなされるかどうか、undefined かどうかで「登録されていない」と判断すると、
     // ここで止まる。
     const weights = new Registry<number>('重み');

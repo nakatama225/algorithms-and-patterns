@@ -6,7 +6,7 @@ import { configReader, lint, ruleAt } from './lint-probe.js';
  * interface の関数の形・switch の種類の書き忘れ・規則を外す注釈の扱いを見る。
  *
  * src/lib/ だけに当てる規則（層の向きと決定性）は lint-lib-rules.test.ts に分けた。lib/ に部品を
- * 足すたびに、そちらの実在するファイルの一覧が伸びるため。規則の当たる範囲と止める書き方の見方は、
+ * 足すたびに、そちらの lib/ のファイルの一覧が伸びるため。規則の当たる範囲と止める書き方の見方は、
  * lint-probe.ts の説明にある。
  */
 

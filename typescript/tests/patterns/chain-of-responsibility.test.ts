@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { resolve, type Handler } from '../../src/patterns/chain-of-responsibility.js';
 
-/** 確かめるための規則。整数を言葉で分類する。 */
+/** 検査に使う規則。整数を言葉で分類する。 */
 type Rule = Handler<number, string>;
 
 const negative: Rule = { name: 'negative', handle: (n) => (n < 0 ? '負の数' : null) };
@@ -116,7 +116,7 @@ describe('resolve', () => {
 
   it('より多くを知っている状況を前提にした規則は、型検査で並べられない', () => {
     // `handle` をメソッドの形で宣言すると状況の型の向きを見なくなり、下の行が型エラーに
-    // ならず、`@ts-expect-error` が使われていないとして型検査が落ちる。
+    // ならず、`@ts-expect-error` が使われていないとして型検査が失敗する。
     // 片方がもう片方を広げた型にしておく。無関係な2つの型だと、向きを見なくても
     // どちら向きにも代入できないので、メソッドの形でも型エラーになり、区別がつかない。
     interface Plain {

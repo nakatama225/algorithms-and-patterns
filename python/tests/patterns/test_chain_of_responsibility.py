@@ -8,7 +8,7 @@ from algorithms_and_patterns.patterns.chain_of_responsibility import (
     resolve,
 )
 
-# 確かめるための規則。整数を言葉で分類する。
+# 検査に使う規則。整数を言葉で分類する。
 
 
 def negative(n: int) -> str | None:

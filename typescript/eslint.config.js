@@ -5,7 +5,7 @@ import tseslint from 'typescript-eslint';
  * 型検査で止められない書き方を、こちらで止める。
  *
  * 型の情報を使う規則の組（recommendedTypeChecked）を使っている。たとえば、
- * 型の分からない値（any）をそのまま渡し回すことや、待っていない Promise を止める。
+ * 型の分からない値（any）をそのまま代入・引数・戻り値に使うことや、待っていない Promise を止める。
  * 型の情報を得るために、検査するファイルはすべて tsconfig.json の include に入っている
  * 必要がある。入っていないファイルは、そのファイルで止まる。
  *

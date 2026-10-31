@@ -24,6 +24,8 @@ python/
       patterns/      設計の型（抽象定義）
   tests/             src と同じ構造。State と単位を型で分ける型は部品が無く、書き方の見本をテストに置いている
     test_layers.py   lib/ が patterns/ と problems/ を読み込んでいないことの検査。src には対応しない
+    test_mypy_settings.py  テストの type: ignore が働く mypy の設定（strict と、使われていない注釈の
+                     指摘）のままかの検査。pyproject.toml を読む。src には対応しない
     lib/
       test_rng_derive_seed.py  rng.py の種を導く関数（derive_seed）のテスト。test_rng.py から分けた
       test_cross_language.py   TypeScript のテストの固定値の表を読み、Python のテストの表と比べる。

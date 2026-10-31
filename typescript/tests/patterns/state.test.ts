@@ -7,7 +7,7 @@ import { assertNever } from '../../src/patterns/state.js';
  * 変わる理由が違うので、ファイルを分けた。
  */
 
-/** 確かめるための状態。接続の状態を、状態ごとに持つ値を分けて表す。 */
+/** 検査に使う状態。接続の状態を、状態ごとに持つ値を分けて表す。 */
 interface Idle {
   readonly kind: 'idle';
 }
@@ -51,7 +51,7 @@ describe('状態を閉じた union で表す', () => {
   it('状態を1つ扱い忘れると、型検査が止める', () => {
     // この型の目的そのもの。`closed` の分岐を書き忘れると、`state` が `never` にならず、
     // assertNever を呼ぶ行が型エラーになる。型エラーにならなければ、`@ts-expect-error` が
-    // 使われていないとして型検査が落ちる。
+    // 使われていないとして型検査が失敗する。
     // 静的検査の switch-exhaustiveness-check も、default があっても同じ書き忘れを止める
     // （規則の選択肢は eslint.config.js）。その指摘は、下の注釈で外す。default がある書き忘れを
     // 止めない選択肢に替えると、この注釈が何も外さなくなり、npm run lint が失敗する。
@@ -94,7 +94,7 @@ describe('状態を閉じた union で表す', () => {
   });
 
   it('その状態でだけ意味を持つ値は、見分ける前には読めない', () => {
-    // 引数で受けて確かめる。変数に代入すると、型検査は代入した値から状態を絞り込むので、
+    // 引数で受けて確認する。変数に代入すると、型検査は代入した値から状態を絞り込むので、
     // 見分けていない状態を作れない。
     function attemptOf(state: Connection): unknown {
       // @ts-expect-error 見分ける前は、attempt を持たない状態かもしれない
@@ -103,7 +103,7 @@ describe('状態を閉じた union で表す', () => {
     expect(attemptOf({ kind: 'connecting', attempt: 1 })).toBe(1);
 
     // 待機中の状態に試行の回数を持たせた値は、直接書くと型検査が止める。
-    // ⚠️ 止まるのは直接書いた値だけ。いったん別の変数に入れた値を渡すと、余分な項目は
+    // 止まるのは直接書いた値だけ。いったん別の変数に入れた値を渡すと、余分な項目は
     // 見逃される。
     // @ts-expect-error 待機中の状態は attempt を持てない
     const wrong: Idle = { kind: 'idle', attempt: 3 };

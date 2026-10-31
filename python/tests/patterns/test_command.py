@@ -17,7 +17,7 @@ from algorithms_and_patterns.patterns.command import (
     ReplaySource,
 )
 
-# 確かめるための小さな処理。数直線の上の位置を、命令のぶんだけ動かす。
+# 検査に使う小さな処理。数直線の上の位置を、命令のぶんだけ動かす。
 Move = Literal[-1, 0, 1]
 
 
@@ -97,7 +97,7 @@ class TestCommandLog:
         log.record(1, 0)
         assert log.entries() == ()
 
-    def test_何度も変わった記録から_それぞれの歩の命令を引ける(self) -> None:
+    def test_何度も変わった記録から_それぞれの歩の命令を取り出せる(self) -> None:
         log: CommandLog[Move] = CommandLog(0)
         script: list[Move] = [1, 1, 0, -1, -1, -1, 1, 0, 0, 1]
         for step, move in enumerate(script):
@@ -182,7 +182,7 @@ class TestCommandLog:
 
 
 class TestRecordingAndReplay:
-    def test_記録しながら流した命令を再生すると_同じ結果になる(self) -> None:
+    def test_記録しながら実行した命令を再生すると_同じ結果になる(self) -> None:
         """この型の目的そのもの。状態を見て命令を決める出どころでも、再生で同じになる。"""
         log: CommandLog[Move] = CommandLog(0)
         recorded = run(RecordingSource(BackAndForth(), log), 50)
@@ -204,8 +204,8 @@ class TestRecordingAndReplay:
         replay = ReplaySource(log)
         assert [replay.command_at(step, None) for step in range(len(seen))] == seen
 
-    def test_再生は歩の番号で命令を引く_呼ばれた順番には頼らない(self) -> None:
-        """呼ばれた回数を自分で数えて引く作りだと、途中から再生したり、
+    def test_再生は歩の番号で命令を取り出す_呼ばれた順番には頼らない(self) -> None:
+        """呼ばれた回数を自分で数えて取り出す作りだと、途中から再生したり、
         同じ歩を読み直したりしたときに別の命令を返す。
         """
         log: CommandLog[Move] = CommandLog(0)
@@ -242,7 +242,7 @@ class TestRecordingAndReplay:
         assert calls == [(0, 0), (1, 1), (2, 2)]
 
     def test_記録した歩数より長く再生すると_最後の命令が続く(self) -> None:
-        """再生を記録より長く回したときの振る舞いを、黙って決めないために書いておく。"""
+        """再生を記録より長く続けたときの振る舞いを、黙って決めないために書いておく。"""
         log: CommandLog[Move] = CommandLog(0)
         recorded = run(RecordingSource(BackAndForth(), log), 10)
         last = log.at(9)
@@ -252,7 +252,7 @@ class TestRecordingAndReplay:
     def test_より多くを知っている状態を前提にした出どころは_型検査で渡せない(
         self,
     ) -> None:
-        """状態の型の向きを型検査が見ていることを確かめる。
+        """状態の型の向きを型検査が見ていることを確認する。
 
         下の代入に付けた ``type: ignore`` は、mypy が型エラーを出すから要る。
         エラーが出なくなると、mypy --strict は使われていない ``type: ignore`` として

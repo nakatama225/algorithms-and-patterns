@@ -1,4 +1,4 @@
-"""答え方を名前で引ける登録表（Strategy）の検査。"""
+"""答え方を名前で取り出せる登録表（Strategy）の検査。"""
 
 from typing import Protocol
 
@@ -8,7 +8,7 @@ from algorithms_and_patterns.patterns.strategy import Registry
 
 
 class Formatter(Protocol):
-    """確かめるための答え方。文字列の整形の仕方を差し替える。
+    """検査に使う答え方。文字列の整形の仕方を差し替える。
 
     ``__call__`` だけを持つ Protocol なので、ただの関数がそのまま答え方になる。
     引数を位置専用（``/``）にしてあるのは、mypy が引数の名前まで照らし合わせるため。
@@ -26,7 +26,7 @@ def lower(text: str) -> str:
     return text.lower()
 
 
-def test_何も登録していなければ_名前の一覧は空で_引くと止まる() -> None:
+def test_何も登録していなければ_名前の一覧は空で_取り出すと止まる() -> None:
     formatters: Registry[Formatter] = Registry("整形の方法")
     assert formatters.keys() == ()
     assert "upper" not in formatters
@@ -34,7 +34,7 @@ def test_何も登録していなければ_名前の一覧は空で_引くと止
         formatters.get("upper")
 
 
-def test_登録した答え方を_名前で引いて使える() -> None:
+def test_登録した答え方を_名前で取り出して使える() -> None:
     formatters: Registry[Formatter] = Registry("整形の方法")
     formatters.add("upper", upper)
     assert "upper" in formatters
@@ -60,7 +60,7 @@ def test_同じ名前で2度登録すると止まり_先に登録したものが
 
 
 def test_大文字と小文字が違えば_別の名前として扱う() -> None:
-    """名前を黙って揃えない。揃えるなら、使う側が揃えてから引く。"""
+    """名前を黙って揃えない。揃えるなら、使う側が揃えてから取り出す。"""
     formatters: Registry[Formatter] = Registry("整形の方法")
     formatters.add("upper", upper)
     formatters.add("Upper", lower)
@@ -69,7 +69,7 @@ def test_大文字と小文字が違えば_別の名前として扱う() -> None
         formatters.get("UPPER")
 
 
-def test_答え方が_0_や空文字や_None_でも_登録されていれば引ける() -> None:
+def test_答え方が_0_や空文字や_None_でも_登録されていれば取り出せる() -> None:
     """値が偽とみなされるかどうかで「登録されていない」と判断すると、ここで止まる。"""
     weights: Registry[int] = Registry("重み")
     weights.add("none", 0)
@@ -150,7 +150,7 @@ class TestRegisterDecorator:
         assert formatters.get("upper") is upper
 
     def test_デコレータを先に2つ作ってから付けても_2つ目で止まる(self) -> None:
-        """名前の重なりを、デコレータを作った時点でしか確かめない作りだと、
+        """名前の重なりを、デコレータを作った時点でしか検査しない作りだと、
         作ってから付けるまでの間に同じ名前が登録されても気づけない。
         """
         formatters: Registry[Formatter] = Registry("整形の方法")
