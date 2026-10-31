@@ -21,6 +21,8 @@
  * ならないので、印が付かないまま積まれる。Python 版は int の型で受けるので、型検査に任せている。
  */
 
+import { checkInteger } from './safe-integer.js';
+
 /** 添字を受けて、その要素が発火したときに届く相手の添字を返す関数。 */
 export type Reaches = (index: number) => Iterable<number>;
 
@@ -137,17 +139,5 @@ function checkIndex(name: string, index: number, count: number): void {
   checkInteger(name, index);
   if (index < 0 || index >= count) {
     throw new RangeError(`${name}が範囲の外: ${index}（要素の数 ${count}）`);
-  }
-}
-
-/**
- * 値が安全な整数（絶対値が 2**53 未満の整数）かを確認する。
- *
- * TypeScript の number は整数と小数を区別しない。Python 版は int の型で受けるので、
- * 型検査がこの確認を受け持つ。
- */
-function checkInteger(name: string, value: number): void {
-  if (!Number.isSafeInteger(value)) {
-    throw new RangeError(`安全な整数でない（${name}）: ${value}`);
   }
 }

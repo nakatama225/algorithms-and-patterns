@@ -12,6 +12,7 @@
  * （`python/src/algorithms_and_patterns/lib/decimal_text.py`）も同じ形。
  */
 
+import { checkAtLeast } from './safe-integer.js';
 import { ReadError } from './strict-read.js';
 
 /** 書く側が書く形。m を付けないので、`$` は文字列の終わりにだけ合う（末尾の改行の前では合わない）。 */
@@ -36,8 +37,7 @@ export interface DecimalOptions {
 export function parseDecimal(text: string, options: DecimalOptions): number {
   const { name, maximum } = options;
   // NaN を渡すと大小の比べが偽になり、どの数も最大以下に見える。
-  if (!Number.isSafeInteger(maximum)) throw new RangeError(`安全な整数でない（最大）: ${maximum}`);
-  if (maximum < 0) throw new RangeError(`最大は 0 以上にする: ${maximum}`);
+  checkAtLeast('最大', maximum, 0);
   if (!DECIMAL.test(text)) {
     throw new ReadError(`${name} が 10 進の整数の形でない: ${JSON.stringify(text)}`);
   }

@@ -18,6 +18,8 @@
  * 先を読まれないことではない。
  */
 
+import { checkInteger } from './safe-integer.js';
+
 /** 状態を1回ごとに進める幅（mulberry32 の定数）。 */
 const INCREMENT = 0x6d2b79f5;
 /** 2 の 32 乗。32 ビットの整数を、0 以上 1 未満の小数に変換するときに割る数。 */
@@ -193,16 +195,4 @@ export function deriveSeed(seed: number, stream: number): number {
     throw new RangeError(`番号は 0 以上 2**32 - 1 未満にする: ${stream}`);
   }
   return (seed ^ Math.imul(stream + 1, SPREAD)) >>> 0;
-}
-
-/**
- * 値が安全な整数（絶対値が 2**53 未満の整数）かを確認する。
- *
- * TypeScript の number は整数と小数を区別しない。Python 版は int の型で受けるので、
- * 型検査がこの確認を受け持つ。
- */
-function checkInteger(name: string, value: number): void {
-  if (!Number.isSafeInteger(value)) {
-    throw new RangeError(`安全な整数でない（${name}）: ${value}`);
-  }
 }

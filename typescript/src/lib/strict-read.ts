@@ -20,6 +20,8 @@
  * （`python/src/algorithms_and_patterns/lib/strict_read.py`）も同じ形。
  */
 
+import { checkInteger } from './safe-integer.js';
+
 /** JSON のオブジェクトを読んだもの。項目の名前と、型をまだ見ていない値。 */
 export type JsonObject = Readonly<Record<string, unknown>>;
 
@@ -82,8 +84,8 @@ export interface IntRange {
  */
 export function readInt(obj: JsonObject, key: string, range: IntRange): number {
   // NaN を渡すと大小の比べがどれも偽になり、どの値も範囲の内側に見える。
-  if (!Number.isSafeInteger(range.minimum)) throw new RangeError(`安全な整数でない（最小）: ${range.minimum}`);
-  if (!Number.isSafeInteger(range.maximum)) throw new RangeError(`安全な整数でない（最大）: ${range.maximum}`);
+  checkInteger('最小', range.minimum);
+  checkInteger('最大', range.maximum);
   if (range.minimum > range.maximum) {
     throw new RangeError(`範囲の最小は最大以下にする: ${range.minimum} > ${range.maximum}`);
   }

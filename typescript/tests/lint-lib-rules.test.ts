@@ -13,7 +13,7 @@ describe('層の向き：lib/ は patterns/ と problems/ を読み込まない'
   const RULE = 'no-restricted-imports';
 
   it('src/lib の下のファイルには、下のフォルダの中まで規則が当たる', async () => {
-    // 初めの13個は lib/ に置いたファイルのパス。範囲の書き方を誤って、どのファイルにも当たらなく
+    // 初めの14個は lib/ に置いたファイルのパス。範囲の書き方を誤って、どのファイルにも当たらなく
     // なったときに失敗する。設定から規則が当たるかを見るだけで、ファイルが在るかは見ない（ファイルを
     // 消しても、lib/ に足したファイルを一覧に足し忘れても、ここでは失敗しない）。
     for (const path of [
@@ -30,6 +30,7 @@ describe('層の向き：lib/ は patterns/ と problems/ を読み込まない'
       'src/lib/percentile.ts',
       'src/lib/line-break.ts',
       'src/lib/geo.ts',
+      'src/lib/safe-integer.ts',
       'src/lib/__probe__.ts',
       'src/lib/sub/__probe__.ts',
     ]) {
@@ -88,7 +89,7 @@ describe('決定性：lib/ では乱数・時刻・for...in を止める', () =>
   }
 
   it('src/lib の下のファイルには、下のフォルダの中まで規則が当たる', async () => {
-    // 初めの13個は lib/ に置いたファイルのパス（上と同じく、ファイルが在るかは見ない）。
+    // 初めの14個は lib/ に置いたファイルのパス（上と同じく、ファイルが在るかは見ない）。
     for (const path of [
       'src/lib/bisect.ts',
       'src/lib/rng.ts',
@@ -103,6 +104,7 @@ describe('決定性：lib/ では乱数・時刻・for...in を止める', () =>
       'src/lib/percentile.ts',
       'src/lib/line-break.ts',
       'src/lib/geo.ts',
+      'src/lib/safe-integer.ts',
       'src/lib/__probe__.ts',
       'src/lib/sub/__probe__.ts',
     ]) {

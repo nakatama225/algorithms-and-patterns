@@ -23,6 +23,8 @@
  * `Math.round` は使わない。小数になるのは、整数どうしを割って返す `progress` と `blend` だけ。
  */
 
+import { checkAtLeast } from './safe-integer.js';
+
 /** 1秒のナノ秒の数。 */
 export const NS_PER_SECOND = 1_000_000_000;
 
@@ -199,21 +201,6 @@ export class RateScaler {
    */
   get blend(): number {
     return this.#blend;
-  }
-}
-
-/**
- * 値が `min` 以上の安全な整数（絶対値が 2**53 未満の整数）かを確認する。
- *
- * TypeScript の number は整数と小数を区別しない。Python 版は int の型で受けるので、整数か
- * どうかは型検査が受け持ち、実行時には `min` 以上かだけを確認する。
- */
-function checkAtLeast(name: string, value: number, min: number): void {
-  if (!Number.isSafeInteger(value)) {
-    throw new RangeError(`安全な整数でない（${name}）: ${value}`);
-  }
-  if (value < min) {
-    throw new RangeError(`${name}は ${min} 以上にする: ${value}`);
   }
 }
 

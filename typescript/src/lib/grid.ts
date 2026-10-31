@@ -17,6 +17,8 @@
  * ならない。Python 版は int の型で受けるので、型検査に任せている。
  */
 
+import { checkAtLeast, checkInteger } from './safe-integer.js';
+
 /** 格子のマスの位置。左上が (0, 0) で、列（`col`）は右へ、行（`row`）は下へ増える。 */
 export interface Cell {
   readonly col: number;
@@ -230,24 +232,4 @@ function inside(cols: number, rows: number, cell: Cell): boolean {
 function checkCell(name: string, cell: Cell): void {
   checkInteger(`${name}の列`, cell.col);
   checkInteger(`${name}の行`, cell.row);
-}
-
-/**
- * 値が安全な整数（絶対値が 2**53 未満の整数）かを確認する。
- *
- * TypeScript の number は整数と小数を区別しない。Python 版は int の型で受けるので、
- * 型検査がこの確認を受け持つ。
- */
-function checkInteger(name: string, value: number): void {
-  if (!Number.isSafeInteger(value)) {
-    throw new RangeError(`安全な整数でない（${name}）: ${value}`);
-  }
-}
-
-/** 値が `min` 以上の安全な整数かを確認する。 */
-function checkAtLeast(name: string, value: number, min: number): void {
-  checkInteger(name, value);
-  if (value < min) {
-    throw new RangeError(`${name}は ${min} 以上にする: ${value}`);
-  }
 }
