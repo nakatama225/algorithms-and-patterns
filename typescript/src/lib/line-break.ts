@@ -18,7 +18,8 @@
  *   置かない字が来たら、前の単位でなく控えに付ける（「あ（）い」は「あ」「（）」「い」）。控えている間の
  *   ASCII の空白も控えに足し、次の単位に付ける（「あ（ い」は「あ」「（ い」）。開きかっこのあとは、
  *   空白をはさんでも折り返さない（Unicode の行分けの規則 UAX #14 の LB14）
- * - 見え方を選ぶ印（U+FE0F）とつなぐ印（U+200D）は前の字に付ける
+ * - 見え方を選ぶ印（U+FE0F）とつなぐ印（U+200D）は前の字に付ける。印の付いた開きかっこも、単位の先頭の字で
+ *   見て控える
  *
  * 単位をつなぐと、元の文に戻る。文字列は UTF-16 の単位で持つので、添字で1つずつ進めると、絵文字
  * （😀 など）がサロゲートの片割れ2つに切れる。`Array.from` で符号位置（コードポイント）ごとに読み、
@@ -61,13 +62,15 @@ export function breakUnits(text: string): string[] {
   while (index < chars.length) {
     const end = unitEnd(chars, index);
     const joins = NO_LINE_START.has(chars[index] ?? '') && units.at(-1) !== ' ';
+    // 印の付いた開きかっこ（「（」と U+FE0F など）も控えるよう、単位でなく先頭の字で見る。
+    const opens = NO_LINE_END.has(chars[index] ?? '');
     const unit = chars.slice(index, end).join('');
     index = end;
     // 控えがあるときに前の単位へ付けると、閉じかっこが控えの開きかっこより前に置かれ、字の順が
     // 逆になる。そのときは下の else で控えとつなぐ。
     if (joins && units.length > 0 && opening === '') {
       units[units.length - 1] += unit;
-    } else if (NO_LINE_END.has(unit) || (opening !== '' && unit === ' ')) {
+    } else if (opens || (opening !== '' && unit === ' ')) {
       // 空白で切ると「（ 」が1つの単位になり、空白として捨てられず、開きかっこが行の終わりに残る。
       opening += unit;
     } else {

@@ -27,6 +27,8 @@ const UNITS: readonly (readonly [text: string, units: readonly string[]])[] = [
   ['あ（ 。い', ['あ', '（ 。', 'い']],
   [HEART + HEART, [HEART, HEART]],
   ['a\ufe0fb', ['a\ufe0f', 'b']],
+  ['あ（\ufe0fい', ['あ', '（\ufe0fい']],
+  ['あ「\u200dい」', ['あ', '「\u200dい」']],
   ['あ\u{1F600}い', ['あ', '\u{1F600}', 'い']],
   ['', []],
   ['  ', [' ', ' ']],
@@ -82,6 +84,13 @@ describe('単位の切り方', () => {
     // 印を1つの単位にすると、行の頭に印だけが出て、前の字と見え方が変わる。
     expect(breakUnits(HEART + 'あ')).toEqual([HEART, 'あ']);
     expect(breakUnits('あ\u200dい')).toEqual(['あ\u200d', 'い']);
+  });
+
+  it('印の付いた開きかっこも、後ろに付ける', () => {
+    // 印は前の字に付くので、開きかっこの単位が「（」と印の2字になる。単位そのものを開きかっこの表と
+    // 比べると当たらず、開きかっこが行の終わりに残る。単位の先頭の字で見る。
+    expect(breakUnits('あ（\ufe0fい')).toEqual(['あ', '（\ufe0fい']);
+    expect(breakUnits('あ「\u200dい」')).toEqual(['あ', '「\u200dい」']);
   });
 
   it('絵文字をサロゲートの片割れに切らない', () => {
