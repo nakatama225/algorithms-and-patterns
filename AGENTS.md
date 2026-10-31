@@ -52,8 +52,10 @@ TypeScript のテストで `// 言語をまたぐ固定値` の注釈に囲ま�
   `tests/test_layers.py` と `tests/lib/test_determinism_guard.py` の既知のファイル、
   `tests/lint-lib-rules.test.ts` の lib/ のファイルのパス（2つの一覧）。Python の一覧は、探す場所を
   誤ったまま何も読まずに通ることを防ぐ。TypeScript の一覧は、規則の当たる範囲の書き方を誤って
-  どのファイルにも当たらなくなることを防ぐ。こちらはファイルが在るかを見ないので、足し忘れても
-  失敗しない。`tests/lint-lib-rules.test.ts` は、この一覧が伸びるので、
+  どのファイルにも当たらなくなることを防ぐ。どちらの一覧も、lib/ に足したファイルを一覧に
+  足し忘れても失敗しないので、手で足す。Python の一覧は、載せたファイルを消すか名前を変えると
+  失敗する。TypeScript の一覧はファイルが在るかを見ないので、消しても失敗しない。
+  `tests/lint-lib-rules.test.ts` は、この一覧が伸びるので、
   リポジトリ全体の規則を見る `tests/lint-rules.test.ts` から分けてある
 - **`tests/lint-rules.test.ts` と `tests/patterns/state.test.ts` の規則を外す注釈（`eslint-disable-next-line`）は消さない。**
   静的検査の規則が働いていることを、わざと置いた違反で確認している。注釈が何も外さなくなると
@@ -63,9 +65,10 @@ TypeScript のテストで `// 言語をまたぐ固定値` の注釈に囲ま�
   `src/` と `tests/`）は、`tests/lint-rules.test.ts` で確認している。
   Python のテストに置いた `type: ignore[...]` も同じ働きで、mypy の設定（`exhaustive-match` など）が
   外れると、使われていない注釈として mypy が失敗する。これは strict に含まれる `warn_unused_ignores` に
-  よる。strict を外すか、`warn_unused_ignores = false` を書くか、`disable_error_code` で `unused-ignore` を
-  切ると、注釈が使われなくなっても mypy は止めない。
-  そうなっていないことは `tests/test_mypy_settings.py` が `pyproject.toml` を読んで確認する
+  よる。strict を外す・`warn_unused_ignores = false` を書く・`disable_error_code` で `unused-ignore` を
+  切る・`ignore_errors = true` を書く・`files` から `tests` を外す、などをすると、注釈が使われなく
+  なっても mypy は止めない。そうなっていないことは `tests/test_mypy_settings.py` が
+  `pyproject.toml` を読んで確認する（見る設定の一覧は、そのテストの説明にある）
 - **同じ処理を2つ目の `problems/` で書いたら、`lib/` へ引き上げる。**
   3回待たない。2回目が共通化の合図
 - **`patterns/` には抽象の定義だけを置く。** 具体的な問題の事情を入れない。
