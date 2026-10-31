@@ -130,6 +130,16 @@ describe('文から行へ', () => {
     expect(breakLines('あい 。', 30, textWidth)).toEqual(['あ', 'い 。']);
   });
 
+  it('空白の直後に印があっても、行の頭に空白を残さない', () => {
+    // 「あい 」は幅 30 に収まり、印から次の行になる。空白は行の終わりで除く。
+    expect(breakLines('あい \ufe0fう', 30, textWidth)).toEqual(['あい', '\ufe0fう']);
+  });
+
+  it('文の終わりの開きかっこの直後の空白は、最後の行に残さない', () => {
+    // 控えに残すと「（ 」が1つの単位になり、幅を超えて次の行に送られる。
+    expect(breakLines('あい（ ', 30, textWidth)).toEqual(['あい（']);
+  });
+
   it('測る関数は、単位をつないだ文字列を受け取る', () => {
     const seen: string[] = [];
     const measure = (text: string): number => {

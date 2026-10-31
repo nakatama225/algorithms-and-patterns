@@ -20,9 +20,10 @@
   行の頭に置かない字が来たら、前の単位でなく控えに付ける（「あ（）い」は「あ」「（）」「い」）。
   控えている間の ASCII の空白も控えに足し、次の単位に付ける（「あ（ い」は「あ」
   「（ い」）。開きかっこのあとは、空白をはさんでも折り返さない（Unicode の行分けの
-  規則 UAX #14 の LB14）
+  規則 UAX #14 の LB14）。文の終わりで控えに残った空白は、空白の単位に戻す
 - 見え方を選ぶ印（U+FE0F）とつなぐ印（U+200D）は前の字に付ける。印の付いた開きかっこも、
-  単位の先頭の字で見て控える
+  単位の先頭の字で見て控える。空白の直後の印は空白に付けず、印から新しい単位を始める
+  （UAX #14 の LB9 は空白に印を付けない。印の後ろで折るかは、UAX #14 に合わせていない）
 
 単位をつなぐと、元の文に戻る。字は符号位置（コードポイント）ごとに読み、書記素（人が
 1字と見るまとまり）では区切らない。改行の字（``\\n``・``\\r``）を含む文は止める。段落の
@@ -94,7 +95,11 @@ def break_units(text: str) -> list[str]:
             units.append(opening + unit)
             opening = ""
     if opening:
-        units.append(opening)
+        # 空白を控えに残すと「（ 」が1つの単位になり、空白として除かれず、最後の行が
+        # 空白で終わる。控えの先頭は開きかっこなので、空白を除いても空にならない。
+        head = opening.rstrip(" ")
+        units.append(head)
+        units.extend([" "] * (len(opening) - len(head)))
     return units
 
 
@@ -119,8 +124,14 @@ def _attach_to_previous(units: list[str], unit: str) -> bool:
 
 
 def _unit_end(text: str, start: int) -> int:
-    """``start`` から始まる単位の終わり（次の単位の始まり）。後ろに続く印も含める。"""
+    """``start`` から始まる単位の終わり（次の単位の始まり）。後ろに続く印も含める。
+
+    空白の後ろの印は含めない。空白と印が1つの単位になると、空白として捨てられず、
+    行の頭に空白が残る。
+    """
     end = start + 1
+    if text[start] == " ":
+        return end
     if _is_ascii_word(text[start]):
         while end < len(text) and _is_ascii_word(text[end]):
             end += 1

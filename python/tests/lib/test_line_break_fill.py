@@ -148,6 +148,16 @@ class Test文から行へ:
         lines = break_lines("あい 。", 30, lambda text: len(text) * 10.0)
         assert lines == ["あ", "い 。"]
 
+    def test_空白の直後に印があっても_行の頭に空白を残さない(self) -> None:
+        """「あい 」は幅 30 に収まり、印から次の行になる。空白は行の終わりで除く。"""
+        lines = break_lines("あい \ufe0fう", 30, lambda text: len(text) * 10.0)
+        assert lines == ["あい", "\ufe0fう"]
+
+    def test_文の終わりの開きかっこの直後の空白は_最後の行に残さない(self) -> None:
+        """控えに残すと「（ 」が1つの単位になり、幅を超えて次の行に送られる。"""
+        lines = break_lines("あい（ ", 30, lambda text: len(text) * 10.0)
+        assert lines == ["あい（"]
+
     def test_測る関数は_単位をつないだ文字列を受け取る(self) -> None:
         seen: list[str] = []
 

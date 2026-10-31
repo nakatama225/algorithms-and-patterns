@@ -19,9 +19,11 @@
  * - 行の終わりに置かない字（開きかっこ）は控えておき、後ろの単位に付ける。控えている間に行の頭に
  *   置かない字が来たら、前の単位でなく控えに付ける（「あ（）い」は「あ」「（）」「い」）。控えている間の
  *   ASCII の空白も控えに足し、次の単位に付ける（「あ（ い」は「あ」「（ い」）。開きかっこのあとは、
- *   空白をはさんでも折り返さない（Unicode の行分けの規則 UAX #14 の LB14）
+ *   空白をはさんでも折り返さない（Unicode の行分けの規則 UAX #14 の LB14）。文の終わりで控えに残った空白は、
+ *   空白の単位に戻す
  * - 見え方を選ぶ印（U+FE0F）とつなぐ印（U+200D）は前の字に付ける。印の付いた開きかっこも、単位の先頭の字で
- *   見て控える
+ *   見て控える。空白の直後の印は空白に付けず、印から新しい単位を始める（UAX #14 の LB9 は空白に印を付けない。
+ *   印の後ろで折るかは、UAX #14 に合わせていない）
  *
  * 単位をつなぐと、元の文に戻る。文字列は UTF-16 の単位で持つので、添字で1つずつ進めると、絵文字
  * （😀 など）がサロゲートの片割れ2つに切れる。`Array.from` で符号位置（コードポイント）ごとに読み、
@@ -91,7 +93,13 @@ export function breakUnits(text: string): string[] {
       opening = '';
     }
   }
-  if (opening !== '') units.push(opening);
+  if (opening !== '') {
+    // 空白を控えに残すと「（ 」が1つの単位になり、空白として除かれず、最後の行が空白で終わる。控えの先頭は
+    // 開きかっこなので、空白を除いても空にならない。
+    const head = opening.replace(/ +$/u, '');
+    units.push(head);
+    for (let count = head.length; count < opening.length; count += 1) units.push(' ');
+  }
   return units;
 }
 
@@ -112,9 +120,14 @@ function attachToPrevious(units: string[], unit: string, first: string): boolean
   return true;
 }
 
-/** `start` から始まる単位の終わり（次の単位の始まり）。後ろに続く印も含める。 */
+/**
+ * `start` から始まる単位の終わり（次の単位の始まり）。後ろに続く印も含める。
+ *
+ * 空白の後ろの印は含めない。空白と印が1つの単位になると、空白として捨てられず、行の頭に空白が残る。
+ */
 function unitEnd(chars: readonly string[], start: number): number {
   let end = start + 1;
+  if (chars[start] === ' ') return end;
   if (isAsciiWord(chars[start] ?? '')) {
     while (end < chars.length && isAsciiWord(chars[end] ?? '')) end += 1;
   }
