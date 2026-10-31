@@ -1,6 +1,6 @@
 # TypeScript 実装
 
-**現在の状態（2026年10月）**：`src/patterns/` に設計の型が5つ、`src/lib/` に共通部品が10個
+**現在の状態（2026年10月）**：`src/patterns/` に設計の型が6つ、`src/lib/` に共通部品が10個
 （二分探索と決定的な擬似乱数と状態の要約と固定刻みの時間と、`grid.ts` の格子と幅優先の最短経路と、
 `cascade.ts` の連鎖の一括処理と最も早い時刻と、`strict-read.ts` と `decimal-text.ts` の外から来た値の読み取りと、
 `sampling.ts` の毎回読む値の判定と、`ring.ts` の輪の上の位置）あります。固定刻みの時間の待つ部品
@@ -53,6 +53,9 @@ typescript/
                                        進める側と保存したものを再生する側で比べるテスト。command-handover.test.ts から分けた
       state-traits.test.ts     State で、種類ごとの性質を1つの表にまとめる見本（Record と satisfies）。
                                state.test.ts から分けた
+      phased-update-invalid.test.ts  src/patterns/phased-update.ts の二段の更新（advanceInPhases）が止める鍵と、
+                                     呼ぶ側の関数の例外の伝え方と、後の処理の型が受け付けるもののテスト。
+                                     phased-update.test.ts から分けた
 ```
 
 置いてある型の一覧と、Python 版との違いは[リポジトリ全体の README](../README.md) にあります。

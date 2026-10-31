@@ -4,8 +4,8 @@
 
 アルゴリズムと設計パターンを、再利用できる部品として実装したものです。
 
-**現在の状態（2026年10月）**：設計の型（`patterns/`）を5つ置いています。TypeScript は5つとも
-部品とテストがあります。Python は3つに部品とテストがあり、残る State と単位を型で分ける型は
+**現在の状態（2026年10月）**：設計の型（`patterns/`）を6つ置いています。TypeScript は6つとも
+部品とテストがあります。Python は4つに部品とテストがあり、残る State と単位を型で分ける型は
 標準ライブラリで足りるので、書き方の見本をテストに置いています。共通部品（`lib/`）は置き始めたところで、
 いまは二分探索（TypeScript だけ。Python は標準ライブラリの `bisect` で足ります）と、
 決定的な擬似乱数と、状態の要約と、固定刻みの時間（待つ部品は Python だけ）と、格子と、
@@ -1150,6 +1150,7 @@ ESLint の2つの規則（[eslint.config.js](https://github.com/nakatama225/anim
 | Chain of Responsibility（規則を優先順に試す） | 1つの長い if の連なりを、独立した規則の並びにする。規則を足す・外す・入れ替えるのが、並びの1行の操作になる | [chain-of-responsibility.ts](typescript/src/patterns/chain-of-responsibility.ts) | [chain_of_responsibility.py](python/src/algorithms_and_patterns/patterns/chain_of_responsibility.py) |
 | State（状態を閉じた union で表す） | 取りうる状態を型で閉じ、状態ごとに持つ値を分ける。状態を足したときの扱い忘れを、型検査が見つける。値を返さない分岐の書き忘れも、型検査と静的検査の設定で見つける。種類ごとの性質を1か所にまとめると、共通の処理は種類を見ずに性質だけで書ける | [state.ts](typescript/src/patterns/state.ts)（性質の表の見本は [state-traits.test.ts](typescript/tests/patterns/state-traits.test.ts)） | 部品は無し（標準ライブラリで足りる）。書き方の見本は [test_state.py](python/tests/patterns/test_state.py) と [test_state_traits.py](python/tests/patterns/test_state_traits.py) |
 | 単位を型で分ける（ブランド型） | 実行時は同じ数でも意味の違う値（区間ごとに 0 へ戻る番号と通しの番号、メートルと秒など）を別の型にし、取り違えを型検査に見つけさせる | [brand.ts](typescript/src/patterns/brand.ts) | 部品は無し（`typing.NewType` で足りる）。書き方の見本は [test_brand.py](python/tests/patterns/test_brand.py) |
+| 二段の更新（同じ番のものをすべて進めてから後の処理を呼ぶ） | たくさんのものを1刻みずつ進め、後の処理（ぶつかったかを見る、など）とほかのものの進める処理が互いの結果を読むとき、同じ番のものをすべて進めてから、後の処理を呼ぶ。進める順は呼ぶ側が渡す鍵で決め、返す並びは元の順のまま | [phased-update.ts](typescript/src/patterns/phased-update.ts) | [phased_update.py](python/src/algorithms_and_patterns/patterns/phased_update.py) |
 
 ### Command の届いた範囲を持つ記録
 
@@ -1330,6 +1331,103 @@ animal-bomber の原型（ブラウザで動く最初の版）は、盤面を進
   終わるの3つの union（round.py の `RoundVerdict`）を返すだけで、次の盤面は試合を進める側が作ります。
   1刻みの中で盤面が入れ替わると、「1回呼ぶと1刻み進む」の約束が崩れ、記録の再生が追えなくなります
 
+### 二段の更新：進める順と並びの順を分ける
+
+たくさんのものを1刻みずつ進め、進めたあとに後の処理（ぶつかったかを見る、など）を呼ぶとき、1つずつ
+「進めてすぐ後の処理」を呼ぶと、先に後の処理を呼んだものが、まだ進んでいないものの古い状態を読みます。
+逆に、あとから進むものの進める処理が、先に呼んだ後の処理の結果を読むこともあります。どちらも、結果が
+並びの順に左右されます。`advance_in_phases`・`advanceInPhases` は、1回の呼び出しを番（まとめて進める段）に
+分け、番ごとに、その番のものをすべて進めてから、役目を終えなかったものの後の処理（`settle`）を呼び、
+次の番へ移ります。
+
+進める順と、返す並びの順を分けています。進める順は、呼ぶ側が渡す関数（`order`）が1つずつ返す鍵
+（番, 番の中の順）で決めます。番の小さい順に進め、同じ番の中は2つ目の小さい順です。新しく並んだものから
+進めるなら、2つ目に位置の符号を反転した値を返します。返す並びは、呼んだ時点の並びの順のままです。
+並びの順を状態の要約に混ぜていても、混ぜる並びの順は進める順に左右されません。
+
+約束は次のとおりです。
+
+- 後の処理は、番ごとに、その番のものをすべて進めたあとで、役目を終えなかったものにだけ、並びの順
+  （古いものから）に呼びます。番の中を新しいものから進めても、後の処理は古いものから呼びます
+- 進める処理（`advance`）は、役目を終えたかを真偽値で返します。真なら終えたものとして、返す並びから外し、
+  後の処理も呼びません
+- 鍵は、何も進める前に、1つにつき1度ずつ求めます（下の選ぶ関数も、何も進める前に1度ずつ呼びます）。
+  進める処理が鍵の元の値を変えても、その刻みの順は変わりません
+- 鍵がまったく同じものどうしは、並びの順に進めます。Python の `sorted` と、JavaScript の
+  `Array.prototype.sort`（ES2019 から）が安定な並べ替え（等しいものの順を保つ）であることに頼っています
+- 並びは呼んだ時点で写し、写した並びの位置（添字）で扱います。同じものかを比べないので、等しい値が
+  2つ並んでも別々に進み、片方だけが役目を終えても、もう片方は残ります
+- 進めている間に呼ぶ側が自分の並びへ足したものは、進めず、後の処理も呼ばず、返す並びにも含めません。
+  呼ぶ側が、呼ぶ前の長さ `n` を覚えておき、返った並びの後ろに `items[n:]`（TypeScript は `items.slice(n)`）を
+  付けます。この付け方は、呼んでいる間、呼ぶ側の並びの後ろに足すだけのときに合います。外したり途中に
+  差し込んだりすると、`items[n:]` が増えたものと合わなくなります
+- 呼んだ並びは書き換えず、新しい並びを返します
+- 選ぶ関数（`picks`）を渡すと、選ばなかったものは進めず、後の処理も呼ばず、返す並びの元の位置に残します
+
+進める処理や後の処理が起きたことを返したいときは、呼ぶ側が関数で包み、自分の列に足します。部品が返すのは
+並びだけです。
+
+この部品のどこまでが要るかは、進める処理と後の処理が何を読むかで決まります。
+
+- 後の処理が無く、進める処理が並びのほかのものの進めた結果を読まず、起きたことも返さないなら、どの順に
+  進めても結果は同じです。この部品は要らず、ふつうの for 文で足ります
+- 後の処理が並びのほかのものの進めた結果を読むか、後の処理が変えた値を、並びのほかのものの進める処理が
+  読むなら、進める処理どうしが互いを読まなくても、二段に分けることは要ります（下の追いかける炎は後者です）
+- 番の中の順（新しいものから進めるか）は、同じ番の進める処理が互いの進めた結果を読まず、起きたことも
+  返さないなら、結果に影響しません
+
+animal-bomber では、盤面に出て自分の規則で動き続けるもの（落とし穴・追いかける炎・跳ねる爆弾など。以下、
+盤面の物）を進める1か所で使っています（Python 版の actors.py の `_advance`、TypeScript 版の ActorSystem.ts の
+`#advance`）。
+
+- 追いかける炎は、最初は1つずつ動いてすぐ当たりを見ていました。古い炎の当たりで相手の体力が尽きると、
+  相手は盤面を離れるので、同じ刻みに動く新しい炎は、その相手を追いませんでした。原型（ブラウザで動く最初の版）は、
+  すべての炎を動かす輪のあとに別の輪で当たりを見るので、新しい炎も相手のほうへ一歩進んでいます。
+  動くのと当たりを見るのを分けて、この形にしました（Python 版のコミット fa19537。TypeScript 版から移した修正）
+- 原型は、種類によって配列を後ろから走査します。後ろから走査すると、同じ刻みに2つが同じマスを取り合えば
+  新しいほうが取り、乱数も新しいほうが先に取り出します。animal-bomber は、新しく出たものから進めるかを
+  種類ごとの性質（Python 版の state/actors.py の `newest_first`、TypeScript 版の WorldActor.ts の `newestFirst`）として
+  持ち、進める処理は種類を見ずに、番と、この性質だけで並べています（Python 版のコミット db851a8）。下の
+  「Strategy と State は逆の性質を持つ」の、種類ごとの性質を1か所にまとめる形と同じ考えです。このリポジトリの
+  `order` は、その性質を鍵に換える所に当たります
+- 追いかける炎には、新しいものから進める性質を付けていません。原型は炎を動かす輪を後ろから走査しますが、
+  炎の動きはほかの炎を読まず、起きたことも返さないので、動かす順は結果に影響しません。動く間に起きたことを
+  返すようにしたら付ける、と fa19537 の本文に書いています（上の、番の中の順が結果に影響しない場合に
+  当たります。二段に分けることは、当たりを見る後の処理のために要ります）
+
+animal-bomber から変えた点が4つあります。
+
+- 増えたものの見分け方：animal-bomber は、進めている間に増えたものを「盤面の物の並びにあり、写した並びに
+  無いもの」（`actor not in current`）として探し、後ろに付けます。盤面の物は項目で比べない（`eq=False`）ので、
+  `in` は同じ実体かを見ます。このリポジトリの部品は写した並びの位置で扱い、同じものかを比べません。増えた
+  ものは呼ぶ側が、呼ぶ前の長さから後ろを切り出して付けます。そのため、等しいと比べられる値（数や、項目ごとに
+  比べる dataclass）を並べても取り違えません。その代わり、この付け方は、呼んでいる間に呼ぶ側の並びの後ろに
+  足すだけのときに合います（上の約束の箇条）。animal-bomber の実体の比べは、外したり途中に差し込んだりしても
+  増えたものを見つけます。animal-bomber の進める処理は盤面の物の並びの後ろに足すだけなので、どちらの付け方
+  でも同じになります
+- 返す値：animal-bomber の進める処理は、役目を終えたかと、起きたことの列を1つの値（Python 版の results.py の
+  `Progress`。`done` が真なら終えた）で返します。このリポジトリは真偽値だけを返し、向きは同じ（真なら終えた）です。
+  起きたことは、上のとおり呼ぶ側が包んで集めます
+- 番の中を新しいものから進める並べ方：animal-bomber の2つの版で書き方が違います。Python 版は1つずつ位置の
+  符号を反転し、TypeScript 版は比べる2つがどちらも新しいものから進めるときだけ逆にします。同じ番に向きの違う
+  ものが混ざると2つの版で順が変わりますが、animal-bomber は「同じ番のものには同じ値を付ける」と約束して
+  避けています（state/actors.py の `newest_first` の説明）。このリポジトリの `order` は鍵の組を返すので、2つの
+  言語で同じ順になります
+- 鍵の求め方：animal-bomber の TypeScript 版は、並べ替えの比べる関数の中で、位置を `indexOf` で毎回探します。
+  このリポジトリは、鍵を先に1度ずつ求めてから並べます
+
+選ぶ関数は animal-bomber の形のまま残しました。animal-bomber の2つの呼び出し（Python 版の `step_actors` と
+`step_owned_actors`、TypeScript 版の `step` と `stepOwnedBy`）は、このリポジトリの形なら、どちらも同じ `order`
+（番と、新しいものから進めるなら位置の符号を反転した値、でなければ位置）を渡し、選ぶ関数だけを変えて書けます
+（TypeScript 版の番 `'owner'` は、animal-bomber の `turnOrder` と同じく数の 0 に換えます）。
+プレイヤーが動いたあとに進めるほうは「持ち主の番に進めるもの（Python 版の `OWNER_TURN`、TypeScript 版の
+`'owner'`）でない」を、持ち主の番に進めるほうは「持ち主の番に進めるもので、持ち主がそのプレイヤー」を渡します。
+`advance` と `settle` は、起きたことを呼ぶ側の列に足す関数で包みます。TypeScript 版の `settle` は盤面の物
+ごとの省ける項目なので、包む関数は `settle` を持つものにだけ呼びます（`actor.settle?.(world)` の形）。
+呼んだあとは、返った並びの後ろに、進める間に増えた盤面の物を付けて戻します。
+選ぶ関数を部品に持たせたのは、選ばなかったものを元の位置に残すためです。呼ぶ側が先に選んで渡すと、返った
+並びと選ばなかったものを合わせて元の順に戻す手間が呼ぶ側に移り、戻すには位置か、同じものかの比べが要ります。
+
 ### 言語で形が変わったところ
 
 #### Command
@@ -1491,6 +1589,26 @@ animal-bomber の原型（ブラウザで動く最初の版）は、盤面を進
 - 実行時：どちらも実行時はただの数で、印で見分けることはできません。Python の
   `isinstance(x, OverallIndex)` は実行時に `TypeError` になり、mypy も止めます
 
+#### 二段の更新
+
+- 並べて区切る書き方：Python は鍵の tuple で `sorted` し、`itertools.groupby` で番ごとに区切ります。`groupby` は
+  隣り合うものしかまとめないので、先に番で並べます。TypeScript は比べる関数を渡して写しに `sort` を当て、番ごとに
+  区切るのは for 文で書いています。並べた写しを返す `toSorted`（ES2023）と、区切る `Map.groupBy`・
+  `Object.groupBy`（ES2024）は、このリポジトリの型の設定（ES2022 だけ）に無く、型検査が止めます
+- 鍵を集める書き方：Python は、`sorted` に渡す鍵の列を生成式でなくリスト内包で作っています。
+  Chain of Responsibility と同じく、生成式の中から StopIteration が出ると RuntimeError に置き換わり
+  （PEP 479）、呼ぶ側の `order` や `picks` が出したものが別の例外に化けて届くためです。TypeScript に同じ
+  置き換えはありません
+- 鍵が整数であること：Python は鍵を `int` の組と型で書き、整数でない鍵（`0.5` など）は型検査（mypy）が止めます。
+  実行時には見ません。TypeScript の `number` は整数と小数を区別しないので、鍵を求めた所で整数かを見て、整数で
+  なければ何も進める前に `RangeError` で止めます。NaN を受け付けると、比べる関数が大小を答えられず、並べる順が
+  実装任せになるためです。Command の歩の番号と同じ分け方です
+- 後の処理の型：Python は値を返さない関数の型（`Callable[[T], None]`）で、値を返す関数を渡すと型検査が止めます。
+  animal-bomber の後の処理のように起きたことの列を返す関数をそのまま渡すと、返した列が黙って捨てられるので、
+  止まるほうが安全です。TypeScript の `(item: T) => void` は、値を返す関数も受け付け、型検査は止めません。
+  起きたことを返す後の処理は、どちらの言語でも呼ぶ側で包んで集めます（両方の言語に、この違いを示すテストが
+  あります）
+
 ### Strategy と State は逆の性質を持つ
 
 Strategy は、答え方を後から足せる代わりに、どんな答え方があるかが型に現れません。
@@ -1542,6 +1660,7 @@ TypeScript 版は、同じ性質を振る舞いの共通の interface の項目�
 | Chain of Responsibility | animal-bomber の CPU の判断。規則の型と先頭から試す関数（[CpuBehavior.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/ai/CpuBehavior.ts)）、規則の並び（[DefaultChain.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/ai/behaviors/DefaultChain.ts)）。以前に試して失敗した規則（袋小路では爆弾を置かずに待つ）を並びに1つ差し込み、爆弾を1個も置かなくなることを見るテスト（[cpu.test.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/tests/ai/cpu.test.ts)） | animal-bomber の CPU の判断。規則の並びと先頭から試す `for` 文（[chain.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/ai/chain.py)）、規則の関数（[behaviors.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/ai/behaviors.py)）。1つの規則の中で、探し方の条件を厳しい順に緩めていく使い方もある（behaviors.py の逃げる規則。燃えかけているマスと踏むと損をするアイテムを避ける → アイテムは踏む → 燃えかけているマスも通る） |
 | State | animal-bomber のプレイヤーの状態。状態の union（[Life.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/state/Life.ts)）と、`never` への代入で扱い忘れを型エラーにする分岐（[WorldState.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/state/WorldState.ts) の `hashLife`）。同じ仕掛けを `assertNever` の形で、イベントの union にも使っている（[SimEvent.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/events/SimEvent.ts)）。ラウンドの判定（[RoundSystem.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/systems/RoundSystem.ts) の `RoundVerdict`）と、通信対戦の局面（[LockstepClient.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/net/LockstepClient.ts) の `LanPhase`）も union で表している。中身を持たない状態の `ALIVE` と `OUT` は、全員で1つの値を使い回し、`Object.freeze` している（[state.ts](typescript/src/patterns/state.ts) の約束の2つ目）。プレイヤーを一時的に乗っ取る振る舞いは、移動や被弾の処理が見る性質を、共通の interface の項目に持たせている（[ActiveAction.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/abilities/ActiveAction.ts)） | animal-bomber のプレイヤーの状態。状態の union（[player.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/state/player.py) の `Alive`・`Negibon`・`Out` と `Life`）と、`match` と `assert_never` で扱い忘れを型エラーにする分岐（[world.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/state/world.py) の `_hash_life`）。イベントの union（[events.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/events.py) の `SimEvent`。受け取る側は [presenter.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/presentation/presenter.py)）、ラウンドの判定（[round.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/systems/round.py) の `RoundVerdict`）、通信対戦の局面（[client.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/net/client.py) の `LanPhase`）も union で表している。値を返さない `match` の書き忘れも見つけるよう、mypy の `exhaustive-match` を有効にしている（[pyproject.toml](https://github.com/nakatama225/animal-bomber/blob/main/py/pyproject.toml)）。プレイヤーを一時的に乗っ取る振る舞いの種類ごとの性質を、`match` と `assert_never` で1か所から返す（[actions.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/state/actions.py) の `ActionTraits` と `traits_of`。このリポジトリの性質の表の見本の元） |
 | 単位を型で分ける | animal-bomber の時刻と識別子。数に印を付けた型（[Tick.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/core/Tick.ts) の `Tick`、[EntityId.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/core/EntityId.ts) の `EntityId`）。試合を通して数える時刻には型を分けず、操作の記録と再生に試合の時計（InputLog.ts の `MatchClock`）を渡している | animal-bomber の時刻と識別子。盤面の時刻と、試合を通して数える時刻（[tick.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/core/tick.py) の `Tick` と `MatchTick`、`MatchTick` の値を作る時計 `MatchClock`）、盤面の物の識別子（[entity_id.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/core/entity_id.py) の `EntityId`）。`MatchTick` の値を作ってよい場所を構文木で限るテスト（[test_match_tick.py](https://github.com/nakatama225/animal-bomber/blob/main/py/tests/boundary/test_match_tick.py)。許す場所がいまも使われていることも見る） |
+| 二段の更新 | animal-bomber の盤面に出て自分の規則で動き続けるもの（落とし穴・追いかける炎・跳ねる爆弾など）を進める所（[ActorSystem.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/systems/ActorSystem.ts) の `#advance`。呼び出しは `step` と `stepOwnedBy`）。進める番と、新しく出たものから進めるかの性質（[WorldActor.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/src/domain/abilities/WorldActor.ts) の `turn` と `newestFirst`）。偽の盤面の物で、進める順と `settle` を呼ぶ順だけを見るテスト（[tick-order.test.ts](https://github.com/nakatama225/animal-bomber/blob/main/ts/tests/systems/tick-order.test.ts)） | animal-bomber の同じ所（[actors.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/systems/actors.py) の `_advance`。呼び出しは `step_actors` と `step_owned_actors`）。進める番と、新しく出たものから進めるかの性質（[state/actors.py](https://github.com/nakatama225/animal-bomber/blob/main/py/src/animal_bomber/domain/state/actors.py) の `actor_turn` と `newest_first`）。進め方と `settle` を偽物に差し替え、順だけを見るテスト（[test_tick_order.py](https://github.com/nakatama225/animal-bomber/blob/main/py/tests/systems/test_tick_order.py)） |
 
 ここに置いた形は、使った先の形をそのまま写したものではありません。使ってみて分かった
 直しを入れてあります。たとえば Command は、歩の番号を処理の側が数えて渡す形にしました。

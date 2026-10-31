@@ -1,6 +1,6 @@
 # Python 実装
 
-**現在の状態（2026年10月）**：`src/algorithms_and_patterns/patterns/` に設計の型が3つあります。
+**現在の状態（2026年10月）**：`src/algorithms_and_patterns/patterns/` に設計の型が4つあります。
 残る2つの State と単位を型で分ける型は、標準ライブラリ（`typing.assert_never` と `match`、
 `typing.NewType`）で足りるので、部品を置かず、書き方の見本を `tests/patterns/test_state.py`・
 `test_state_traits.py`・`test_brand.py` に置いています。`lib/`（共通部品）には
@@ -59,6 +59,9 @@ python/
       test_state.py              State の書き方の見本と、扱い忘れを見つける検査。src には対応しない
       test_state_traits.py       State で、種類ごとの性質を1つの関数にまとめる見本。test_state.py から分けた
       test_brand.py              単位を型で分ける型（typing.NewType）の書き方の見本。src には対応しない
+      test_phased_update_invalid.py  phased_update.py の二段の更新（advance_in_phases）が、呼ぶ側の関数の
+                                     例外をそのまま伝えることと、型検査が止めるもののテスト。
+                                     test_phased_update.py から分けた
 ```
 
 標準ライブラリだけで書いているので、実行に要る依存はありません。
