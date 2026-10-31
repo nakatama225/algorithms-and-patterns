@@ -136,6 +136,13 @@ class Test文から行へ:
             "です。",
         ]
 
+    def test_開きかっこの直後に空白があっても_開きかっこを行の終わりに残さない(
+        self,
+    ) -> None:
+        """「あい（ 」は幅 40 にちょうど収まるが、開きかっこと空白は次の字と同じ行。"""
+        lines = break_lines("あい（ え", 40, lambda text: len(text) * 10.0)
+        assert lines == ["あい", "（ え"]
+
     def test_測る関数は_単位をつないだ文字列を受け取る(self) -> None:
         seen: list[str] = []
 

@@ -120,6 +120,11 @@ describe('文から行へ', () => {
     expect(breakLines('これは（例）です。', 30, textWidth)).toEqual(['これは', '（例）', 'です。']);
   });
 
+  it('開きかっこの直後に空白があっても、開きかっこを行の終わりに残さない', () => {
+    // 「あい（ 」は幅 40 にちょうど収まるが、開きかっこと空白は次の字と同じ行に置く。
+    expect(breakLines('あい（ え', 40, textWidth)).toEqual(['あい', '（ え']);
+  });
+
   it('測る関数は、単位をつないだ文字列を受け取る', () => {
     const seen: string[] = [];
     const measure = (text: string): number => {
