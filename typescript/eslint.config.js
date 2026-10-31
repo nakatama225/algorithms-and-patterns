@@ -9,7 +9,8 @@ import tseslint from 'typescript-eslint';
  * 型の情報を得るために、検査するファイルはすべて tsconfig.json の include に入っている
  * 必要がある。入っていないファイルは、そのファイルで止まる。
  *
- * ここに書いた規則が意図した所で働いていることは、tests/lint-rules.test.ts で確認している。
+ * ここに書いた規則が意図した所で働いていることは、tests/lint-rules.test.ts（リポジトリ全体の規則）と
+ * tests/lint-lib-rules.test.ts（lib/ だけに当てる規則）で確認している。
  */
 export default tseslint.config(
   { ignores: ['node_modules/**', 'coverage/**'] },
@@ -72,7 +73,7 @@ export default tseslint.config(
   },
 
   {
-    // lib/ だけに当てる規則。規則が意図した所で働いていることは tests/lint-rules.test.ts で見る。
+    // lib/ だけに当てる規則。規則が意図した所で働いていることは tests/lint-lib-rules.test.ts で見る。
     //
     // 層の向き：lib/ は patterns/ と problems/ を読み込まない（AGENTS.md）。
     // 共通部品が特定の型や問題を知っている状態にしない。逆の向き（patterns/ から lib/）はよい。

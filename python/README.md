@@ -7,7 +7,8 @@
 決定的な擬似乱数（`rng.py`）と、状態の要約（`state_hash.py`）と、固定刻みの時間（`fixed_step.py`）と、
 格子と幅優先の最短経路（`grid.py`）と、連鎖の一括処理と最も早い時刻（`cascade.py`）と、外から来た値の
 読み取り（`strict_read.py` と、10 進の整数を書いた文字列を読む `decimal_text.py`）と、毎回読む値の判定
-（`sampling.py`）と、輪の上の位置（`ring.py`）があります。
+（`sampling.py`）と、輪の上の位置（`ring.py`）と、パーセンタイル（`percentile.py`）と、禁則つきの行詰め
+（`line_break.py`）と、大円距離（`geo.py`）があります。
 固定刻みの時間の待つ部品（締め切りまで眠る関数とフレームの輪）は、Python だけに置いています。TypeScript 版が `lib/` に置いた二分探索は、
 標準ライブラリの `bisect` で足りるので置いていません。`problems/` はまだありません。
 
@@ -48,6 +49,11 @@ python/
       test_sampling.py           sampling.py の2つのしきい値（Hysteresis）と大きいほうの軸（dominant_axis）のテスト
       test_sampling_press.py     sampling.py の押し始め（EdgeDetector）と短い押し（PressLatch）のテスト。
                                  test_sampling.py から分けた
+      test_percentile.py         percentile.py のパーセンタイル（percentile）のテスト
+      test_line_break.py         line_break.py の単位の切り方（break_units）のテスト
+      test_line_break_fill.py    line_break.py の行への詰め方（fill_lines・break_lines）と止める値のテスト。
+                                 test_line_break.py から分けた
+      test_geo.py                geo.py の緯度と経度の組（LatLon）と大円距離（great_circle_km）のテスト
     patterns/
       test_command_arrival.py    command.py の届いた範囲を持つ記録（ArrivalLog）のテスト。
                                  test_command.py から分けた

@@ -1,9 +1,10 @@
 # TypeScript 実装
 
-**現在の状態（2026年10月）**：`src/patterns/` に設計の型が6つ、`src/lib/` に共通部品が10個
+**現在の状態（2026年10月）**：`src/patterns/` に設計の型が6つ、`src/lib/` に共通部品が13個
 （二分探索と決定的な擬似乱数と状態の要約と固定刻みの時間と、`grid.ts` の格子と幅優先の最短経路と、
 `cascade.ts` の連鎖の一括処理と最も早い時刻と、`strict-read.ts` と `decimal-text.ts` の外から来た値の読み取りと、
-`sampling.ts` の毎回読む値の判定と、`ring.ts` の輪の上の位置）あります。固定刻みの時間の待つ部品
+`sampling.ts` の毎回読む値の判定と、`ring.ts` の輪の上の位置と、`percentile.ts` のパーセンタイルと、
+`line-break.ts` の禁則つきの行詰めと、`geo.ts` の大円距離）あります。固定刻みの時間の待つ部品
 （締め切りまで眠る関数とフレームの輪）は、Python 版だけに置いています。`src/problems/` はまだありません。
 
 ```text
@@ -18,7 +19,11 @@ typescript/
     lib/             共通部品
     patterns/        設計の型（抽象定義）。lib/ を使ってよい
   tests/             src と同じ構造
-    lint-rules.test.ts  静的検査の設定が意図した所で働いていることの確認。src には対応しない
+    lint-rules.test.ts  静的検査の設定のうち、リポジトリ全体に当てる規則（interface の関数の形・switch の
+                        種類の書き忘れ・規則を外す注釈）が意図した所で働いていることの確認。src には対応しない
+    lint-lib-rules.test.ts  静的検査の設定のうち、src/lib/ だけに当てる規則（層の向きと決定性）の確認。
+                            lint-rules.test.ts から分けた。src には対応しない
+    lint-probe.ts       上の2つのテストが使う、静的検査に文字列とパスを渡す補助。テストの補助で、src には対応しない
     lib/
       rng.test.ts              src/lib/rng.ts の乱数の本体（Rng）のテスト
       rng-derive-seed.test.ts  src/lib/rng.ts の種を導く関数（deriveSeed）のテスト
@@ -43,6 +48,11 @@ typescript/
       sampling.test.ts         src/lib/sampling.ts の2つのしきい値（Hysteresis）と大きいほうの軸（dominantAxis）のテスト
       sampling-press.test.ts   src/lib/sampling.ts の押し始め（EdgeDetector）と短い押し（PressLatch）のテスト。
                                sampling.test.ts から分けた
+      percentile.test.ts       src/lib/percentile.ts のパーセンタイル（percentile）のテスト
+      line-break.test.ts       src/lib/line-break.ts の単位の切り方（breakUnits）のテスト
+      line-break-fill.test.ts  src/lib/line-break.ts の行への詰め方（fillLines・breakLines）と止める値のテスト。
+                               line-break.test.ts から分けた
+      geo.test.ts              src/lib/geo.ts の緯度と経度の組（LatLon）と大円距離（greatCircleKm）のテスト
     patterns/
       command-arrival.test.ts  src/patterns/command.ts の届いた範囲を持つ記録（ArrivalLog）のテスト。
                                command.test.ts から分けた

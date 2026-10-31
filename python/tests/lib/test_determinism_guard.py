@@ -113,6 +113,9 @@ def test_libの下のどのファイルにも_禁じた書き方が無い() -> N
     assert f"{TOP}/lib/decimal_text.py" in results
     assert f"{TOP}/lib/sampling.py" in results
     assert f"{TOP}/lib/ring.py" in results
+    assert f"{TOP}/lib/percentile.py" in results
+    assert f"{TOP}/lib/line_break.py" in results
+    assert f"{TOP}/lib/geo.py" in results
     assert {path: found for path, found in results.items() if found} == {}
 
 
