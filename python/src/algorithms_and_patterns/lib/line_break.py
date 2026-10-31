@@ -12,8 +12,10 @@
 
 - ASCII の空白でない字（``!`` から ``~`` まで。英数字と記号）の続きは1つにまとめる
 - ASCII の空白（U+0020）は1つずつ、ほかの字（日本語・絵文字など）は1字ずつ切る
-- 行の頭に置かない字（閉じかっこ・句読点など）は前の単位に付ける。前の単位が空白1つなら
-  付けない
+- 行の頭に置かない字（閉じかっこ・句読点など）は前の単位に付ける。前の単位が空白なら、
+  閉じかっこ・句読点・感嘆符と疑問符だけを、空白ごと空白の前の単位に付ける（「あ 。い」
+  は「あ 。」「い」）。閉じかっこ・感嘆符の前は、空白をはさんでも折り返さない（UAX #14
+  の LB13）。空白の前に単位が無ければ付けない
 - 行の終わりに置かない字（開きかっこ）は控えておき、後ろの単位に付ける。控えている間に
   行の頭に置かない字が来たら、前の単位でなく控えに付ける（「あ（）い」は「あ」「（）」「い」）。
   控えている間の ASCII の空白も控えに足し、次の単位に付ける（「あ（ い」は「あ」
@@ -39,8 +41,19 @@ from typing import TypeVar
 
 U = TypeVar("U")
 
-_NO_LINE_START = frozenset("、。，．）」』】〕〉》！？：；ー…‥・％")
-"""行の頭に置かない字（直前の字と離さない）。"""
+_NO_LINE_START_EVEN_AFTER_SPACE = frozenset("、。，．）」』】〕〉》！？")
+"""空白をはさんでも、直前の字と離さない字（閉じかっこ・句読点・感嘆符と疑問符）。
+
+UAX #14 の LB13 で、この字の前では空白のあとでも折り返さない（行分けの分類が CL と
+EX）。
+"""
+
+_NO_LINE_START = _NO_LINE_START_EVEN_AFTER_SPACE | frozenset("：；ー…‥・％")
+"""行の頭に置かない字（直前の字と離さない）。
+
+上の表にない字（コロン・長音・三点リーダー・中黒・％）は、空白のあとでは前に付けない
+（UAX #14 でも空白のあとは折り返せる。LB18）。
+"""
 
 _NO_LINE_END = frozenset("（「『【〔〈《")
 """行の終わりに置かない字（直後の字と離さない）。"""
@@ -67,12 +80,11 @@ def break_units(text: str) -> list[str]:
         end = _unit_end(text, index)
         unit = text[index:end]
         index = end
-        joins = unit[0] in _NO_LINE_START and units[-1:] != [" "]
         # 控えがあるときに前の単位へ付けると、閉じかっこが控えの開きかっこより前に
         # 置かれ、字の順が逆になる。そのときは下の else で控えとつなぐ。
-        if joins and units and not opening:
-            units[-1] += unit
-        elif unit[0] in _NO_LINE_END or (opening and unit == " "):
+        if not opening and _attach_to_previous(units, unit):
+            continue
+        if unit[0] in _NO_LINE_END or (opening and unit == " "):
             # 単位でなく先頭の字で見るのは、印の付いた開きかっこ（「（」と U+FE0F
             # など）も控えるため。空白で切ると「（ 」が1つの単位になり、空白として
             # 捨てられず、開きかっこが行の終わりに残る。
@@ -83,6 +95,26 @@ def break_units(text: str) -> list[str]:
     if opening:
         units.append(opening)
     return units
+
+
+def _attach_to_previous(units: list[str], unit: str) -> bool:
+    """行の頭に置かない字なら、前の単位に付けて真を返す。
+
+    前の単位が空白なら、``_NO_LINE_START_EVEN_AFTER_SPACE`` の字だけを、続く空白ごと、
+    空白の前の単位に付ける。字だけを空白に付けると、「 。」が行の頭に来る。
+    """
+    if unit[0] not in _NO_LINE_START:
+        return False
+    spaces = 0
+    while spaces < len(units) and units[-1 - spaces] == " ":
+        spaces += 1
+    if spaces == len(units) or (
+        spaces and unit[0] not in _NO_LINE_START_EVEN_AFTER_SPACE
+    ):
+        return False
+    head = len(units) - spaces - 1
+    units[head:] = ["".join(units[head:]) + unit]
+    return True
 
 
 def _unit_end(text: str, start: int) -> int:

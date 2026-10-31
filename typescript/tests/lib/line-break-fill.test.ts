@@ -125,6 +125,11 @@ describe('文から行へ', () => {
     expect(breakLines('あい（ え', 40, textWidth)).toEqual(['あい', '（ え']);
   });
 
+  it('句点の直前に空白があっても、句点を行の頭に置かない', () => {
+    // 「あい 」は幅 30 にちょうど収まるが、空白で折り返すと句点が行の頭に来る。
+    expect(breakLines('あい 。', 30, textWidth)).toEqual(['あ', 'い 。']);
+  });
+
   it('測る関数は、単位をつないだ文字列を受け取る', () => {
     const seen: string[] = [];
     const measure = (text: string): number => {

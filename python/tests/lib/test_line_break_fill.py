@@ -143,6 +143,11 @@ class Test文から行へ:
         lines = break_lines("あい（ え", 40, lambda text: len(text) * 10.0)
         assert lines == ["あい", "（ え"]
 
+    def test_句点の直前に空白があっても_句点を行の頭に置かない(self) -> None:
+        """「あい 」は幅 30 にちょうど収まるが、空白で折り返すと句点が行の頭に来る。"""
+        lines = break_lines("あい 。", 30, lambda text: len(text) * 10.0)
+        assert lines == ["あ", "い 。"]
+
     def test_測る関数は_単位をつないだ文字列を受け取る(self) -> None:
         seen: list[str] = []
 

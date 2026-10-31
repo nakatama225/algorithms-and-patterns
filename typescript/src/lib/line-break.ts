@@ -13,7 +13,9 @@
  *
  * - ASCII の空白でない字（`!` から `~` まで。英数字と記号）の続きは1つにまとめる
  * - ASCII の空白（U+0020）は1つずつ、ほかの字（日本語・絵文字など）は1字ずつ切る
- * - 行の頭に置かない字（閉じかっこ・句読点など）は前の単位に付ける。前の単位が空白1つなら付けない
+ * - 行の頭に置かない字（閉じかっこ・句読点など）は前の単位に付ける。前の単位が空白なら、閉じかっこ・句読点・
+ *   感嘆符と疑問符だけを、空白ごと空白の前の単位に付ける（「あ 。い」は「あ 。」「い」）。閉じかっこ・感嘆符の
+ *   前は、空白をはさんでも折り返さない（UAX #14 の LB13）。空白の前に単位が無ければ付けない
  * - 行の終わりに置かない字（開きかっこ）は控えておき、後ろの単位に付ける。控えている間に行の頭に
  *   置かない字が来たら、前の単位でなく控えに付ける（「あ（）い」は「あ」「（）」「い」）。控えている間の
  *   ASCII の空白も控えに足し、次の単位に付ける（「あ（ い」は「あ」「（ い」）。開きかっこのあとは、
@@ -34,8 +36,20 @@
  * （`python/src/algorithms_and_patterns/lib/line_break.py`）も同じ形。
  */
 
-/** 行の頭に置かない字（直前の字と離さない）。 */
-const NO_LINE_START: ReadonlySet<string> = new Set('、。，．）」』】〕〉》！？：；ー…‥・％');
+/**
+ * 空白をはさんでも、直前の字と離さない字（閉じかっこ・句読点・感嘆符と疑問符）。
+ *
+ * UAX #14 の LB13 で、この字の前では空白のあとでも折り返さない（行分けの分類が CL と EX）。
+ */
+const NO_LINE_START_EVEN_AFTER_SPACE: ReadonlySet<string> = new Set('、。，．）」』】〕〉》！？');
+
+/**
+ * 行の頭に置かない字（直前の字と離さない）。
+ *
+ * 上の表にない字（コロン・長音・三点リーダー・中黒・％）は、空白のあとでは前に付けない（UAX #14 でも
+ * 空白のあとは折り返せる。LB18）。
+ */
+const NO_LINE_START: ReadonlySet<string> = new Set([...NO_LINE_START_EVEN_AFTER_SPACE, ...'：；ー…‥・％']);
 
 /** 行の終わりに置かない字（直後の字と離さない）。 */
 const NO_LINE_END: ReadonlySet<string> = new Set('（「『【〔〈《');
@@ -61,16 +75,14 @@ export function breakUnits(text: string): string[] {
   let index = 0;
   while (index < chars.length) {
     const end = unitEnd(chars, index);
-    const joins = NO_LINE_START.has(chars[index] ?? '') && units.at(-1) !== ' ';
     // 印の付いた開きかっこ（「（」と U+FE0F など）も控えるよう、単位でなく先頭の字で見る。
-    const opens = NO_LINE_END.has(chars[index] ?? '');
+    const first = chars[index] ?? '';
     const unit = chars.slice(index, end).join('');
     index = end;
     // 控えがあるときに前の単位へ付けると、閉じかっこが控えの開きかっこより前に置かれ、字の順が
     // 逆になる。そのときは下の else で控えとつなぐ。
-    if (joins && units.length > 0 && opening === '') {
-      units[units.length - 1] += unit;
-    } else if (opens || (opening !== '' && unit === ' ')) {
+    if (opening === '' && attachToPrevious(units, unit, first)) continue;
+    if (NO_LINE_END.has(first) || (opening !== '' && unit === ' ')) {
       // 空白で切ると「（ 」が1つの単位になり、空白として捨てられず、開きかっこが行の終わりに残る。
       opening += unit;
     } else {
@@ -80,6 +92,23 @@ export function breakUnits(text: string): string[] {
   }
   if (opening !== '') units.push(opening);
   return units;
+}
+
+/**
+ * 行の頭に置かない字なら、前の単位に付けて true を返す。`first` は単位の先頭の字。
+ *
+ * 前の単位が空白なら、`NO_LINE_START_EVEN_AFTER_SPACE` の字だけを、続く空白ごと、空白の前の単位に付ける。
+ * 字だけを空白に付けると、「 。」が行の頭に来る。
+ */
+function attachToPrevious(units: string[], unit: string, first: string): boolean {
+  if (!NO_LINE_START.has(first)) return false;
+  let spaces = 0;
+  while (spaces < units.length && units[units.length - 1 - spaces] === ' ') spaces += 1;
+  if (spaces === units.length) return false;
+  if (spaces > 0 && !NO_LINE_START_EVEN_AFTER_SPACE.has(first)) return false;
+  const head = units.length - spaces - 1;
+  units.splice(head, spaces + 1, units.slice(head).join('') + unit);
+  return true;
 }
 
 /** `start` から始まる単位の終わり（次の単位の始まり）。後ろに続く印も含める。 */
