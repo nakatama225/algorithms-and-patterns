@@ -47,7 +47,8 @@ const NO_LINE_START_EVEN_AFTER_SPACE: ReadonlySet<string> = new Set('、。，�
  * 行の頭に置かない字（直前の字と離さない）。
  *
  * 上の表にない字（コロン・長音・三点リーダー・中黒・％）は、空白のあとでは前に付けない（UAX #14 でも
- * 空白のあとは折り返せる。LB18）。
+ * 空白のあとは折り返せる。LB18）。閉じかっこ・句読点と空白のあとのコロン・セミコロン・中黒・長音の前では
+ * 折り返さない規則（LB16）は扱わない。
  */
 const NO_LINE_START: ReadonlySet<string> = new Set([...NO_LINE_START_EVEN_AFTER_SPACE, ...'：；ー…‥・％']);
 
