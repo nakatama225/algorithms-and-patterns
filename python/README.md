@@ -6,7 +6,8 @@
 `test_state_traits.py`・`test_brand.py` に置いています。`lib/`（共通部品）には
 決定的な擬似乱数（`rng.py`）と、状態の要約（`state_hash.py`）と、固定刻みの時間（`fixed_step.py`）と、
 格子と幅優先の最短経路（`grid.py`）と、連鎖の一括処理と最も早い時刻（`cascade.py`）と、外から来た値の
-読み取り（`strict_read.py` と、10 進の整数を書いた文字列を読む `decimal_text.py`）があります。
+読み取り（`strict_read.py` と、10 進の整数を書いた文字列を読む `decimal_text.py`）と、毎回読む値の判定
+（`sampling.py`）と、輪の上の位置（`ring.py`）があります。
 固定刻みの時間の待つ部品（締め切りまで眠る関数とフレームの輪）は、Python だけに置いています。TypeScript 版が `lib/` に置いた二分探索は、
 標準ライブラリの `bisect` で足りるので置いていません。`problems/` はまだありません。
 
@@ -44,6 +45,9 @@ python/
       test_strict_read_enum.py   strict_read.py の閉じた種類への読み替え（read_enum）のテスト
       error_head.py              上のテストと test_decimal_text.py が使う、止めた文の頭の比べ方。
                                  テストの補助で、src には対応しない
+      test_sampling.py           sampling.py の2つのしきい値（Hysteresis）と大きいほうの軸（dominant_axis）のテスト
+      test_sampling_press.py     sampling.py の押し始め（EdgeDetector）と短い押し（PressLatch）のテスト。
+                                 test_sampling.py から分けた
     patterns/
       test_command_arrival.py    command.py の届いた範囲を持つ記録（ArrivalLog）のテスト。
                                  test_command.py から分けた

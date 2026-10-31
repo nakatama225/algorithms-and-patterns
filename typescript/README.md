@@ -1,9 +1,9 @@
 # TypeScript 実装
 
-**現在の状態（2026年10月）**：`src/patterns/` に設計の型が5つ、`src/lib/` に共通部品が8つ
+**現在の状態（2026年10月）**：`src/patterns/` に設計の型が5つ、`src/lib/` に共通部品が10個
 （二分探索と決定的な擬似乱数と状態の要約と固定刻みの時間と、`grid.ts` の格子と幅優先の最短経路と、
-`cascade.ts` の連鎖の一括処理と最も早い時刻と、`strict-read.ts` と `decimal-text.ts` の外から来た値の読み取り）
-あります。固定刻みの時間の待つ部品
+`cascade.ts` の連鎖の一括処理と最も早い時刻と、`strict-read.ts` と `decimal-text.ts` の外から来た値の読み取りと、
+`sampling.ts` の毎回読む値の判定と、`ring.ts` の輪の上の位置）あります。固定刻みの時間の待つ部品
 （締め切りまで眠る関数とフレームの輪）は、Python 版だけに置いています。`src/problems/` はまだありません。
 
 ```text
@@ -23,7 +23,8 @@ typescript/
       rng.test.ts              src/lib/rng.ts の乱数の本体（Rng）のテスト
       rng-derive-seed.test.ts  src/lib/rng.ts の種を導く関数（deriveSeed）のテスト
       state-hash.test.ts       src/lib/state-hash.ts の状態の要約（StateHasher）のテスト
-                               この3つのファイルの固定値の表は Python のテストも読む。書き換えたら
+      ring.test.ts             src/lib/ring.ts の輪の上の位置（wrap・signedDelta）のテスト
+                               この4つのファイルの固定値の表は Python のテストも読む。書き換えたら
                                Python のテストも走らせる
       fixed-step.test.ts       src/lib/fixed-step.ts の経過時間を刻みの数に換える部品（StepAccumulator）のテスト
       fixed-step-rate.test.ts  src/lib/fixed-step.ts の倍率の部品（RateScaler）のテスト
@@ -39,6 +40,9 @@ typescript/
       strict-read-choice.test.ts  src/lib/strict-read.ts の決めた文字列への読み替え（readChoice）のテスト
       error-head.ts            上のテストと decimal-text.test.ts が使う、止めた文の頭の比べ方。
                                テストの補助で、src には対応しない
+      sampling.test.ts         src/lib/sampling.ts の2つのしきい値（Hysteresis）と大きいほうの軸（dominantAxis）のテスト
+      sampling-press.test.ts   src/lib/sampling.ts の押し始め（EdgeDetector）と短い押し（PressLatch）のテスト。
+                               sampling.test.ts から分けた
     patterns/
       command-arrival.test.ts  src/patterns/command.ts の届いた範囲を持つ記録（ArrivalLog）のテスト。
                                command.test.ts から分けた

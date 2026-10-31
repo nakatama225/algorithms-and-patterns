@@ -32,6 +32,7 @@ from pathlib import Path
 
 import pytest
 
+from .test_ring import SIGNED_DELTAS, WRAPPED
 from .test_rng import FIRST_VALUES, SHUFFLED
 from .test_rng_derive_seed import DERIVED_SEEDS
 from .test_state_hash import FLOAT_HASHES, INT_HASHES, MIXED_HASHES, TEXT_HASHES
@@ -40,6 +41,7 @@ TS_TESTS = Path(__file__).resolve().parents[3] / "typescript" / "tests"
 RNG_TEST = TS_TESTS / "lib" / "rng.test.ts"
 DERIVE_SEED_TEST = TS_TESTS / "lib" / "rng-derive-seed.test.ts"
 STATE_HASH_TEST = TS_TESTS / "lib" / "state-hash.test.ts"
+RING_TEST = TS_TESTS / "lib" / "ring.test.ts"
 
 MARK = "// 言語をまたぐ固定値："
 # 囲みの始まりの注釈。名前を取り出す。
@@ -78,6 +80,8 @@ TABLES: dict[str, tuple[Path, list[Row]]] = {
             for (first, value, text, flag, last), h in MIXED_HASHES
         ],
     ),
+    "WRAPPED": (RING_TEST, list(WRAPPED)),
+    "SIGNED_DELTAS": (RING_TEST, list(SIGNED_DELTAS)),
 }
 
 
