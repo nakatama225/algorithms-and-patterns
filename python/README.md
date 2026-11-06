@@ -1,6 +1,6 @@
 # Python 実装
 
-**現在の状態（2026年10月）**：`src/algorithms_and_patterns/patterns/` に設計の型が4つあります。
+**現在の状態（2026年11月）**：`src/algorithms_and_patterns/patterns/` に設計の型が4つあります。
 残る2つの State と単位を型で分ける型は、標準ライブラリ（`typing.assert_never` と `match`、
 `typing.NewType`）で足りるので、部品を置かず、書き方の見本を `tests/patterns/test_state.py`・
 `test_state_traits.py`・`test_brand.py` に置いています。`lib/`（共通部品）には
@@ -8,7 +8,7 @@
 格子と幅優先の最短経路（`grid.py`）と、連鎖の一括処理と最も早い時刻（`cascade.py`）と、外から来た値の
 読み取り（`strict_read.py` と、10 進の整数を書いた文字列を読む `decimal_text.py`）と、毎回読む値の判定
 （`sampling.py`）と、輪の上の位置（`ring.py`）と、パーセンタイル（`percentile.py`）と、禁則つきの行詰め
-（`line_break.py`）と、大円距離（`geo.py`）があります。
+（`line_break.py`）と、大円距離（`geo.py`）と、最小ベイズリスクによる選択（`mbr.py`）があります。
 固定刻みの時間の待つ部品（締め切りまで眠る関数とフレームの輪）は、Python だけに置いています。TypeScript 版が `lib/` に置いた二分探索は、
 標準ライブラリの `bisect` で足りるので置いていません。`problems/` はまだありません。
 
@@ -56,6 +56,7 @@ python/
       test_line_break_fill.py    line_break.py の行への詰め方（fill_lines・break_lines）と止める値のテスト。
                                  test_line_break.py から分けた
       test_geo.py                geo.py の緯度と経度の組（LatLon）と大円距離（great_circle_km）のテスト
+      test_mbr.py                mbr.py の最小ベイズリスクによる選択（mbr_select）のテスト
     patterns/
       test_command_arrival.py    command.py の届いた範囲を持つ記録（ArrivalLog）のテスト。
                                  test_command.py から分けた

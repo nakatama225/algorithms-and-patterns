@@ -110,6 +110,7 @@ def test_libの下のどのファイルも_patternsとproblemsを読み込まな
     assert f"{TOP}/lib/percentile.py" in results
     assert f"{TOP}/lib/line_break.py" in results
     assert f"{TOP}/lib/geo.py" in results
+    assert f"{TOP}/lib/mbr.py" in results
     assert {path: found for path, found in results.items() if found} == {}
 
 

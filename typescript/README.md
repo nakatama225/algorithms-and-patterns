@@ -1,10 +1,10 @@
 # TypeScript 実装
 
-**現在の状態（2026年10月）**：`src/patterns/` に設計の型が6つ、`src/lib/` に共通部品が13個
+**現在の状態（2026年11月）**：`src/patterns/` に設計の型が6つ、`src/lib/` に共通部品が14個
 （二分探索と決定的な擬似乱数と状態の要約と固定刻みの時間と、`grid.ts` の格子と幅優先の最短経路と、
 `cascade.ts` の連鎖の一括処理と最も早い時刻と、`strict-read.ts` と `decimal-text.ts` の外から来た値の読み取りと、
 `sampling.ts` の毎回読む値の判定と、`ring.ts` の輪の上の位置と、`percentile.ts` のパーセンタイルと、
-`line-break.ts` の禁則つきの行詰めと、`geo.ts` の大円距離）あります。ほかに、部品が整数で受ける引数を
+`line-break.ts` の禁則つきの行詰めと、`geo.ts` の大円距離と、`mbr.ts` の最小ベイズリスクによる選択）あります。ほかに、部品が整数で受ける引数を
 実行時に確認する `safe-integer.ts` があります（Python 版は `int` の型で受けるので、置いていません）。
 固定刻みの時間の待つ部品（締め切りまで眠る関数とフレームの輪）は、Python 版だけに置いています。
 `src/problems/` はまだありません。
@@ -55,6 +55,7 @@ typescript/
       line-break-fill.test.ts  src/lib/line-break.ts の行への詰め方（fillLines・breakLines）と止める値のテスト。
                                line-break.test.ts から分けた
       geo.test.ts              src/lib/geo.ts の緯度と経度の組（LatLon）と大円距離（greatCircleKm）のテスト
+      mbr.test.ts              src/lib/mbr.ts の最小ベイズリスクによる選択（mbrSelect）のテスト
       safe-integer.test.ts     src/lib/safe-integer.ts の安全な整数の確認（checkInteger・checkAtLeast）のテスト
     patterns/
       command-arrival.test.ts  src/patterns/command.ts の届いた範囲を持つ記録（ArrivalLog）のテスト。
